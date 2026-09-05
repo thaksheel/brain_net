@@ -33,7 +33,7 @@ for name in names:
     params.num_classes = dataset.num_classes
 
     trainer = GraphTrainer(params, display=True)
-    eval_results = trainer.evaluate_graph_cls(dataset)
+    eval_results = trainer.evaluate_graph_cls_stnd(dataset)
     best_results = trainer.get_best_eval_results(eval_results)
     df_results = trainer.evaluation_results_to_df(
         eval_results,

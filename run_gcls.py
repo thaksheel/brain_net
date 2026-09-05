@@ -47,7 +47,7 @@ with ThreadPoolExecutor(max_workers=4) as executor:
     for future in as_completed(futures):
         name = futures[future]
         ds_name, eval_results, best_results = future.result()
-        df_results = THGTrainer(Params()).evaluation_results_to_df(
+        df_results = THGTrainer(Params(dataset=None, num_classes=None, method=None)).evaluation_results_to_df(
             eval_results,
             outname=f"./exports/tu_results_{name.lower()}.xlsx",
             export=True,

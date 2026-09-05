@@ -31,7 +31,7 @@ from .config import (
 )
 
 
-class THGTrainer:
+class GraphTrainer:
     def __init__(
         self,
         params: Params,

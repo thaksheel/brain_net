@@ -12,8 +12,8 @@ params = Params(
     dataset="HCPGender",
     num_classes=None,
     num_layers=2,
-    M=3,
-    Mlst=[3, 3],
+    M=6,
+    Mlst=[6, 6],
     hid_dim=8,
     epochs=5,
     lr=5e-3,
@@ -38,7 +38,7 @@ eval_results = trainer.evaluate_graph_cls(dataset)
 
 print("\n\n---> Time Tests: ")
 [
-    print(f"{k}={np.mean(v):.3f}s")
+    print(f"{k}={np.mean(v):.3f}s/iter  total={np.sum(v)}s")
     for k, v in trainer.time_test.__dict__.items()
     if k not in ["batch_size", "input_size", "target_size"]
 ]

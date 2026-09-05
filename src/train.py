@@ -391,9 +391,9 @@ class THGTrainer:
             )
             if self.display:
                 print(
+                    f"ds_name={self.params.dataset} "
                     f"epoch={epoch+1} "
                     f"loss={tr_loss:.3f} "
-                    f"train_acc={results[-1].accuracy.train*100:.2f}% "
                     f"test_acc={results[-1].accuracy.test*100:.2f}% "
                     f"test_f1_macro={results[-1].f1_macro.test*100:.2f}% "
                     f"test_f1={results[-1].f1.test} "

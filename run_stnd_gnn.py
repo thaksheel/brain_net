@@ -37,7 +37,7 @@ for name in names:
     best_results = trainer.get_best_eval_results(eval_results)
     df_results = trainer.evaluation_results_to_df(
         eval_results,
-        outname=f"./exports/tu_results{name.lower()}.xlsx",
+        outname=f"./exports/tu_results_{name.lower()}.xlsx",
         export=True,
         exclude_fields=[],
     )

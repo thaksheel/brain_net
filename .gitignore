@@ -1,0 +1,23 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+.env/
+
+# System files
+.DS_Store
+Thumbs.db
+.vscode
+
+# Ignore folders
+data/
+exports/
+temp/
+
+.env
+*.pyc
+*.log 
+doc.txt 
+

@@ -7,7 +7,6 @@ from torch_geometric.datasets import TUDataset
 from src.train import THGTrainer
 from src.config import Params
 
-
 params = Params(
     method="T-MPHN",
     dataset="HCPGender",
@@ -16,7 +15,7 @@ params = Params(
     M=3,
     Mlst=[3, 3],
     hid_dim=64,
-    epochs=1000,
+    epochs=200,
     lr=5e-3,
     wd=5e-3,
     dropout=0.65,
@@ -26,6 +25,7 @@ params = Params(
     device="cpu",
     batch_size=32,
 )
+
 names = ["MUTAG", "NCI109", "NCI1", "PROTEINS"]
 for name in names:
     dataset = TUDataset(root="data/TUDataset", name=name)  # 4100

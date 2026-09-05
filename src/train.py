@@ -19,6 +19,7 @@ from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.loader import DataLoader
 
 from .models.tmphn_graph import TMPHN_Graph_Cls
+from .models.gnn import GIN
 from .utils.prepare import initialize, read_data, add_self_loop
 from .utils.Neighbors import NeighborFinder
 from .utils.datasets import NeuroGraphDataset
@@ -272,7 +273,6 @@ class THGTrainer:
         dataset: InMemoryDataset,
     ) -> List[EvalResults]:
         """Generate dataloader, batches, optimizer, and criterion to feed into `train()` and `test()` to return `List[EvalResults]`"""
-        s = time.time()
         ttv_dataset = self.ttv_splits(dataset)
         ttv_loader = self.get_dataloader(ttv_dataset)
         if self.collect_time_test:
@@ -284,6 +284,18 @@ class THGTrainer:
         if self.collect_time_test:
             self.durations.append(time.time())
             self.time_test.model_load.append(self.durations[-1] - self.durations[-2])
+        eval_results = self.train_graph_cls(model, ttv_loader)
+        return eval_results
+
+    def evaluate_graph_cls_stnd(self, dataset: InMemoryDataset):
+        ttv_dataset = self.ttv_splits(dataset)
+        ttv_loader = self.get_dataloader(ttv_dataset)
+        model = GIN(
+            in_f=self.params.num_features,
+            hid_c=self.params.hid_dim,
+            out_f=self.params.num_classes,
+            dropout=self.params.dropout,
+        ).to(self.device)
         eval_results = self.train_graph_cls(model, ttv_loader)
         return eval_results
 
@@ -307,7 +319,7 @@ class THGTrainer:
                 self.time_test.batch_size.append(batch.size())
                 self.time_test.input_size.append(batch.x.shape)
                 self.time_test.target_size.append(batch.y.shape)
-            out = model.forward(batch)
+            out = model(batch)
             if self.collect_time_test:
                 self.durations.append(time.time())
                 self.time_test.forward.append(self.durations[-1] - self.durations[-2])

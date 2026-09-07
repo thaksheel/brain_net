@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch_geometric.datasets import TUDataset
 
-from src.train import THGTrainer
+from src.train import GraphTrainer
 from src.config import Params
 from src.utils.datasets import NeuroGraphDataset
 
@@ -32,7 +32,7 @@ dataset = NeuroGraphDataset(root=root_folder, name=dataset_name)
 params.num_features = dataset.num_features
 params.num_classes = dataset.num_classes
 
-trainer = THGTrainer(params, display=True)
+trainer = GraphTrainer(params, display=True)
 eval_results = trainer.evaluate_graph_cls(dataset)
 best_results = trainer.get_best_eval_results(eval_results)
 df_results = trainer.evaluation_results_to_df(

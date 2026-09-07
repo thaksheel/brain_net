@@ -94,14 +94,29 @@ class Preprocess:
     def __init__(self, n_rois: int, normalize: Literal["minmax", "standard"]):
         self.n_rois = n_rois
         self.normalize = normalize
-        self.patient_ids = None 
+        self.patient_ids = None
 
-    def get_graph_dataset(self, nodes: List[Node], edges: List[Edge], y: List[float]) -> List[Data]: 
+    def get_graph_dataset(
+        self, nodes: List[Node], edges: List[Edge], y: List[float]
+    ) -> List[Data]:
+        max_node_dim = np.max([n.data.shape[1] for n in nodes])
+        exclude_patients = [
+            int(n.patient_id) for n in nodes if n.data.shape[1] != max_node_dim
+        ]
         dataset: List[Data] = []
-        for i, n in enumerate(nodes): 
-            src, dist = edges[i].A.nonzero()
-            edge_index = torch.tensor([src, dist], dtype=torch.long)
-            dataset.append(Data(x=n.data, edge_index=edge_index, y=torch.tensor(y[i])))
+        for i, n in enumerate(nodes):
+            if n.patient_id in exclude_patients:
+                continue
+            src, dst = edges[i].A.nonzero()
+            edge_index_np = np.vstack([src, dst])
+            edge_index = torch.from_numpy(edge_index_np).long()
+            dataset.append(
+                Data(
+                    x=torch.from_numpy(n.data).float(),
+                    edge_index=edge_index,
+                    y=torch.tensor([y[i]]),
+                )
+            )
         return dataset
 
     def get_hypergraph(self, nodes: List[Node], edges: List[Edge], y: np.ndarray):
@@ -161,7 +176,7 @@ class Preprocess:
         edge_folder: str,
         edge_rep: Literal["specific_k", "spectral", "cosine_sim", "top_frequency"],
         node_rep: Literal["mean", "pca", "linear", "nmf", "specific_k"],
-        sparsity: Literal['0.2', "0.5"],
+        sparsity: Literal["0.2", "0.5"],
     ):
         df = pd.read_csv(target_path)
         self.patient_ids = df["IID"].to_numpy()
@@ -302,7 +317,7 @@ class Preprocess:
             "specific_k": self._specific_k,
             "spectral": self._spectral_embed,
             "cosine_sim": self._cosine_sim,
-            "top_frequency": self._top_frequency, #TODO: add outtype to control weighted or binary 
+            "top_frequency": self._top_frequency,  # TODO: add outtype to control weighted or binary
         }
         return methods[emd_type](M, dim_out)
 

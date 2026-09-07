@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch_geometric.datasets import TUDataset
 
-from src.train import THGTrainer
+from src.train import GraphTrainer
 from src.config import Params
 
 params = Params(
@@ -33,7 +33,7 @@ dataset = TUDataset(root="data/TUDataset", name="PROTEINS")  # 1100
 params.num_features = dataset.num_features
 params.num_classes = dataset.num_classes
 
-trainer = THGTrainer(params, display=True, collect_time_test=True)
+trainer = GraphTrainer(params, display=True, collect_time_test=True)
 eval_results = trainer.evaluate_graph_cls(dataset)
 
 print("\n\n---> Time Tests: ")

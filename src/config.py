@@ -196,8 +196,8 @@ class Params:
         - Recommended to set orders in descending order to prevent oversmoothing.
     """
 
-    dataset: str
     num_classes: int
+    num_features: int 
     method: Literal["T-Spectral", "T-Spatial", "T-MPHN"]
     hyperG_norm: bool = False
     data_type: str = "new"
@@ -221,7 +221,7 @@ class Params:
     combine: str = "concat"
     M: int = 5
     Mlst: List[int] = field(default_factory=lambda: [3])
-    num_features: int = None
+    dataset: str = None
     batch_size: int = 16
 
 

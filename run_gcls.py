@@ -4,7 +4,7 @@ import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from torch_geometric.datasets import TUDataset
 
-from src.train import THGTrainer
+from src.train import GraphTrainer
 from src.config import Params
 
 
@@ -33,7 +33,7 @@ def run_single_dataset(name: str):
     params.num_features = dataset.num_features
     params.num_classes = dataset.num_classes
 
-    trainer = THGTrainer(params, display=True)
+    trainer = GraphTrainer(params, display=True)
     eval_results = trainer.evaluate_graph_cls(dataset)
     best_results = trainer.get_best_eval_results(eval_results)
 
@@ -47,7 +47,7 @@ with ThreadPoolExecutor(max_workers=4) as executor:
     for future in as_completed(futures):
         name = futures[future]
         ds_name, eval_results, best_results = future.result()
-        df_results = THGTrainer(Params(dataset=None, num_classes=None, method=None)).evaluation_results_to_df(
+        df_results = GraphTrainer(Params(dataset=None, num_classes=None, method=None)).evaluation_results_to_df(
             eval_results,
             outname=f"./exports/tu_results_{name.lower()}.xlsx",
             export=True,

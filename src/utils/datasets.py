@@ -8,6 +8,29 @@ import torch
 from torch_geometric.data import Data, InMemoryDataset, download_url, extract_zip
 
 
+class GraphDataset(InMemoryDataset):
+    def __init__(self, root, data_list=None, name= None, transform=None, pre_transform=None):
+        self.data_list = data_list
+        self.name = name 
+        super().__init__(root, transform, pre_transform)
+        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
+
+    @property
+    def processed_file_names(self):
+        return "data.pt"
+
+    def process(self):
+        cleaned = []
+        for d in self.data_list:
+            # Force all fields to be tensors
+            d.x = torch.as_tensor(d.x, dtype=torch.float32)
+            d.edge_index = torch.as_tensor(d.edge_index, dtype=torch.long)
+            d.y = torch.as_tensor(d.y, dtype=torch.long).view(1)
+            cleaned.append(d)
+        data, slices = self.collate(cleaned)
+        torch.save((data, slices), self.processed_paths[0])
+
+
 class NeuroGraphDataset(InMemoryDataset):
     r"""The NeuroGraph benchmark datasets from the
     `"NeuroGraph: Benchmarks for Graph Machine Learning in Brain Connectomics"
@@ -104,7 +127,6 @@ class NeuroGraphDataset(InMemoryDataset):
 
     def process(self):
         data, slices = torch.load(self.raw_paths[0], weights_only=False)
-
         num_samples = slices["x"].size(0) - 1
         data_list: List[Data] = []
         for i in range(num_samples):
@@ -114,13 +136,10 @@ class NeuroGraphDataset(InMemoryDataset):
                 slices["edge_index"][i] : slices["edge_index"][i + 1],
             ]
             sample = Data(x=x, edge_index=edge_index, y=data.y[i])
-
             if self.pre_filter is not None and not self.pre_filter(sample):
                 continue
-
             if self.pre_transform is not None:
                 sample = self.pre_transform(sample)
-
             data_list.append(sample)
         data, slices = self.collate(data_list)
         torch.save((data, slices), self.processed_paths[0])

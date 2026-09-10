@@ -266,17 +266,22 @@ class EvalResults:
 
     def __repr__(self):
         return (
-            f"EvalResults("
-            f"epoch={self.epoch}, \n"
-            f"method='{self.method}', \n"
-            f"duration={self.duration:.3f}, \n"
-            f"loss={self.loss}, \n"
-            f"accuracy={self.accuracy}, \n"
-            f"f1={self.f1}, \n"
-            f"f1_macro={self.f1_macro}, \n"
-            f"rmse={self.rmse}, \n"
-            f"seed={self.seed}"
-            f")"
+            "EvalResults(\n"
+            f"  epoch={self.epoch},\n"
+            f"  method='{self.method}',\n"
+            f"  duration={self.duration:.3f},\n"
+            f"  loss=TTV(train={self.loss.train:.4f}, "
+            f"test={self.loss.test:.4f}, val={self.loss.val:.4f}),\n"
+            f"  accuracy=TTV(train={self.accuracy.train:.4f}, "
+            f"test={self.accuracy.test:.4f}, val={self.accuracy.val:.4f}),\n"
+            f"  f1=TTV(train={self.f1.train}, "
+            f"test={self.f1.test}, val={self.f1.val}),\n"
+            f"  f1_macro=TTV(train={self.f1_macro.train:.4f}, "
+            f"test={self.f1_macro.test:.4f}, val={self.f1_macro.val:.4f}),\n"
+            f"  rmse=TTV(train={self.rmse.train:.4f}, "
+            f"test={self.rmse.test:.4f}, val={self.rmse.val:.4f}),\n"
+            f"  seed={self.seed}\n"
+            ")"
         )
 
 

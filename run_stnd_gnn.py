@@ -28,14 +28,14 @@ params = Params(
 )
 
 names = ["MUTAG", "NCI109", "NCI1", "PROTEINS"]
-names = ["MUTAG"]
+names = ["PROTEINS"]
 for name in names:
     dataset = TUDataset(root="data/TUDataset", name=name)  # 4100
     params.num_features = dataset.num_features
     params.num_classes = dataset.num_classes
     params.dataset = name 
 
-    trainer = GraphTrainer(params, display=True)
+    trainer = GraphTrainer(params, display=False, progress_bar=True)
     eval_results = trainer.evaluate_graph_cls_stnd(dataset)
     best_results = trainer.get_best_eval_results(eval_results)
     df_results = trainer.evaluation_results_to_df(

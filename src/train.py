@@ -46,10 +46,12 @@ class GraphTrainer:
         init_limit_rois: int = None,
         limit_X_features: int = None,
         display: bool = False,
+        progress_bar: bool = False,
         collect_time_test: bool = False,
     ):
         self.params = params
         self.display = display
+        self.progress_bar = progress_bar
         self.device = torch.device(self.params.device)
         self.init_stopper = init_stopper
         self.init_limit_rois = init_limit_rois
@@ -440,7 +442,7 @@ class GraphTrainer:
         )
         criterion = torch.nn.CrossEntropyLoss()
         results: List[EvalResults] = []
-        for epoch in range(self.params.epochs):
+        for epoch in tqdm(range(self.params.epochs), disable=not self.progress_bar, desc="Graph Train"):
             # TODO: remove all time stamps later
             start = time.time()
             trt, trp, tr_loss, out_tr = self.optimize_graph_cls(
@@ -668,7 +670,7 @@ class GraphTrainer:
     ):
         best_score, best_params = 0, None
         evals: Dict[int, EvalResults] = {}
-        for i in tqdm(range(maxiter)):
+        for i in tqdm(range(maxiter), desc="Grid Search"):
             params = {k: random.choice(v) for k, v in param_grid.__dict__.items()}
             self.set_params(**params)
             if graph_type == "stnd":

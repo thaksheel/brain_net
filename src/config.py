@@ -1,7 +1,7 @@
 import argparse
 from dataclasses import dataclass, field
 import numpy as np
-from typing import List, Literal, Any, Dict, Tuple 
+from typing import List, Literal, Any, Dict, Tuple
 import torch
 from torch_geometric.data import Data, InMemoryDataset
 import itertools
@@ -197,7 +197,7 @@ class Params:
     """
 
     num_classes: int
-    num_features: int 
+    num_features: int
     method: Literal["T-Spectral", "T-Spatial", "T-MPHN"]
     hyperG_norm: bool = False
     data_type: str = "new"
@@ -229,11 +229,11 @@ class Params:
 class TTV:
     train: Any
     test: Any
-    val: Any 
+    val: Any
 
 
-@dataclass 
-class GridSearchParams: 
+@dataclass
+class GridSearchParams:
     lr: Tuple[float]
     wd: Tuple[float]
     num_layers: Tuple[int]
@@ -253,9 +253,16 @@ class EvalResults:
     f1_macro: TTV
     mae: TTV
     rmse: TTV
+    precision: TTV
+    recall: TTV
+    sensitivity: TTV
+    specificity: TTV
+    npv: TTV
+    roc_auc: TTV
+    pr_auc: TTV
     M: int
-    seed: int = None 
-    params: Dict = None 
+    seed: int = None
+    params: Dict = None
 
     def __repr__(self):
         return (
@@ -267,9 +274,7 @@ class EvalResults:
             f"accuracy={self.accuracy}, \n"
             f"f1={self.f1}, \n"
             f"f1_macro={self.f1_macro}, \n"
-            f"mae={self.mae}, \n"
             f"rmse={self.rmse}, \n"
-            f"M={self.M}"
             f"seed={self.seed}"
             f")"
         )
@@ -277,20 +282,20 @@ class EvalResults:
 
 @dataclass
 class TimeTest:
-    init: Any 
-    model_load: Any 
+    init: Any
+    model_load: Any
 
-    batch_size: Any 
-    input_size: Any 
-    target_size: Any 
+    batch_size: Any
+    input_size: Any
+    target_size: Any
 
-    forward: Any 
-    criterion: Any 
-    backward: Any 
-    optimizer_step: Any 
+    forward: Any
+    criterion: Any
+    backward: Any
+    optimizer_step: Any
 
-    test_eval: Any 
-    val_eval: Any 
+    test_eval: Any
+    val_eval: Any
 
 
 @dataclass

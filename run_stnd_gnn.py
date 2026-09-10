@@ -15,19 +15,20 @@ params = Params(
     num_layers=2,
     M=3,
     Mlst=[3, 3],
-    hid_dim=64,
+    hid_dim=16,
     epochs=200,
-    lr=5e-3,
-    wd=5e-3,
-    dropout=0.65,
+    lr=0.001,
+    wd=0.1,
+    dropout=0.8,
     train_ratio=0.7,
     valid_ratio=0.1,
     seed=42,
     device="cpu",
-    batch_size=32,
+    batch_size=8,
 )
 
 names = ["MUTAG", "NCI109", "NCI1", "PROTEINS"]
+names = ["MUTAG"]
 for name in names:
     dataset = TUDataset(root="data/TUDataset", name=name)  # 4100
     params.num_features = dataset.num_features

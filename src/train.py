@@ -10,6 +10,11 @@ from sklearn.metrics import (
     f1_score,
     root_mean_squared_error,
     mean_absolute_error,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    average_precision_score,
+    confusion_matrix,
 )
 from typing import Dict, List, Optional, Literal, Tuple
 import seaborn as sns
@@ -187,6 +192,30 @@ class GraphTrainer:
         )
         return TTV(train=train_loader, val=val_loader, test=test_loader)
 
+    def compute_alt_metrics(self, y_true: np.ndarray, y_pred: np.ndarray):
+        tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0  # sensitivity
+        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+        npv = tn / (tn + fn) if (tn + fn) > 0 else 0.0
+        return {
+            "precision": precision,
+            "recall": recall,
+            "sensitivity": recall,
+            "specificity": specificity,
+            "npv": npv,
+        }
+
+    def compute_auc_metrics(self, y_true, logits):
+        # Convert logits → probabilities
+        probs = torch.softmax(logits, dim=1).cpu().numpy()[:, 1]
+        roc_auc = roc_auc_score(y_true, probs)
+        pr_auc = average_precision_score(y_true, probs)
+        return {
+            "roc_auc": roc_auc,
+            "pr_auc": pr_auc,
+        }
+
     def get_eval_results(
         self,
         epoch: int,
@@ -201,7 +230,32 @@ class GraphTrainer:
         test_pred: List,
         val_true: List,
         val_pred: List,
+        train_logits: torch.Tensor,
+        test_logits: torch.Tensor,
+        val_logits: torch.Tensor,
     ):
+        # Medical metrics
+        train_med = self.compute_alt_metrics(train_true, train_pred)
+        test_med = self.compute_alt_metrics(test_true, test_pred)
+        val_med = self.compute_alt_metrics(val_true, val_pred)
+
+        # AUC metrics (requires logits)
+        train_auc = (
+            self.compute_auc_metrics(train_true, train_logits)
+            if train_logits is not None
+            else {}
+        )
+        test_auc = (
+            self.compute_auc_metrics(test_true, test_logits)
+            if test_logits is not None
+            else {}
+        )
+        val_auc = (
+            self.compute_auc_metrics(val_true, val_logits)
+            if val_logits is not None
+            else {}
+        )
+
         return EvalResults(
             epoch=epoch,
             method=method,
@@ -210,6 +264,41 @@ class GraphTrainer:
                 train=accuracy_score(train_true, train_pred),
                 test=accuracy_score(test_true, test_pred),
                 val=accuracy_score(val_true, val_pred),
+            ),
+            precision=TTV(
+                train=train_med["precision"],
+                test=test_med["precision"],
+                val=val_med["precision"],
+            ),
+            recall=TTV(
+                train=train_med["recall"],
+                test=test_med["recall"],
+                val=val_med["recall"],
+            ),
+            sensitivity=TTV(
+                train=train_med["sensitivity"],
+                test=test_med["sensitivity"],
+                val=val_med["sensitivity"],
+            ),
+            specificity=TTV(
+                train=train_med["specificity"],
+                test=test_med["specificity"],
+                val=val_med["specificity"],
+            ),
+            npv=TTV(
+                train=train_med["npv"],
+                test=test_med["npv"],
+                val=val_med["npv"],
+            ),
+            roc_auc=TTV(
+                train=train_auc.get("roc_auc"),
+                test=test_auc.get("roc_auc"),
+                val=val_auc.get("roc_auc"),
+            ),
+            pr_auc=TTV(
+                train=train_auc.get("pr_auc"),
+                test=test_auc.get("pr_auc"),
+                val=val_auc.get("pr_auc"),
             ),
             f1=TTV(
                 train=f1_score(train_true, train_pred, average=None),
@@ -221,11 +310,7 @@ class GraphTrainer:
                 test=f1_score(test_true, test_pred, average="macro"),
                 val=f1_score(val_true, val_pred, average="macro"),
             ),
-            loss=TTV(
-                train=train_loss,
-                test=test_loss,
-                val=val_loss,
-            ),
+            loss=TTV(train=train_loss, test=test_loss, val=val_loss),
             rmse=TTV(
                 train=root_mean_squared_error(train_true, train_pred),
                 test=root_mean_squared_error(test_true, test_pred),
@@ -236,9 +321,9 @@ class GraphTrainer:
                 test=mean_absolute_error(test_true, test_pred),
                 val=mean_absolute_error(val_true, val_pred),
             ),
-            M=None,
+            M=self.params.M,
             seed=self.params.seed,
-            params=self.params, 
+            params=self.params,
         )
 
     def evaluate_graph_cls(
@@ -339,7 +424,8 @@ class GraphTrainer:
             optimizer.zero_grad()
         trues = [t.item() for t in trues]
         preds = [t.item() for t in preds]
-        return trues, preds, np.mean(losses), out
+        outs = torch.stack([i.detach() for i in outs])
+        return trues, preds, np.mean(losses), outs
 
     def train_graph_cls(
         self,
@@ -354,16 +440,21 @@ class GraphTrainer:
         criterion = torch.nn.CrossEntropyLoss()
         results: List[EvalResults] = []
         for epoch in range(self.params.epochs):
+            # TODO: remove all time stamps later
             start = time.time()
-            trt, trp, tr_loss, out_agg = self.optimize_graph_cls(
+            trt, trp, tr_loss, out_tr = self.optimize_graph_cls(
                 ttv_loader.train, model, optimizer, criterion
             )
             duration = time.time() - start
-            tet, tep, te_loss = self.test_graph_cls(model, ttv_loader.test, criterion)
+            tet, tep, te_loss, out_te = self.model_evaluation(
+                model, ttv_loader.test, criterion
+            )
             if self.collect_time_test:
                 self.durations.append(time.time())
                 self.time_test.test_eval.append(self.durations[-1] - self.durations[-2])
-            valt, valp, val_loss = self.test_graph_cls(model, ttv_loader.val, criterion)
+            valt, valp, val_loss, out_val = self.model_evaluation(
+                model, ttv_loader.val, criterion
+            )
             if self.collect_time_test:
                 self.durations.append(time.time())
                 self.time_test.val_eval.append(self.durations[-1] - self.durations[-2])
@@ -381,6 +472,9 @@ class GraphTrainer:
                     tep,
                     valt,
                     valp,
+                    out_tr,
+                    out_te,
+                    out_val,
                 )
             )
             if self.display:
@@ -399,7 +493,7 @@ class GraphTrainer:
         self.trained_model = model
         return results
 
-    def test_graph_cls(
+    def model_evaluation(
         self,
         model: torch.nn.Module,
         test_loader: DataLoader,
@@ -410,6 +504,7 @@ class GraphTrainer:
         losses = []
         trues = []
         preds = []
+        outs = []
         with torch.no_grad():
             for batch in test_loader:
                 out = model(batch)
@@ -418,9 +513,11 @@ class GraphTrainer:
                 preds.extend(pred)
                 trues.extend(y)
                 losses.append(criterion(out, y).item())
+                outs.extend(out)
         trues = [t.item() for t in trues]
         preds = [t.item() for t in preds]
-        return trues, preds, np.mean(losses)
+        outs = torch.stack([i.detach() for i in outs])
+        return trues, preds, np.mean(losses), outs
 
     def train_node_cls(
         self,
@@ -509,13 +606,14 @@ class GraphTrainer:
             )
         return tr
 
-    def get_best_model(self, train_results: List[EvalResults]) -> EvalResults:
+    def get_best_scores(self, train_results: List[EvalResults]) -> EvalResults:
+        """Find best training results using highest `val` accuracy"""
         test_score = np.array([tr.accuracy.test for tr in train_results])
         best = np.argmax(test_score)
         return train_results[best]
 
     def predict(self, train_results: List[EvalResults]):
-        tr = self.get_best_model(train_results)
+        tr = self.get_best_scores(train_results)
         model = tr.model
         # TODO: complete this to fit any data beyond the self.data idx
         if self.params.method == "T-Spectral" or self.params.method == "T-Spatial":
@@ -549,7 +647,7 @@ class GraphTrainer:
             params = dict(zip(keys, combo))
             self.set_params(**params)
             train_results = self.fit_train(datafile=datafile)
-            best_result = self.get_best_model(train_results)
+            best_result = self.get_best_scores(train_results)
             result_arr.append(best_result)
             param_arr.append(params)
             if best_result.accuracy.test > best_score:
@@ -576,10 +674,10 @@ class GraphTrainer:
                 evals[i] = self.evaluate_graph_cls_stnd(dataset)
             elif graph_type == "tensor":
                 evals[i] = self.evaluate_graph_cls(dataset)
-            best_result = self.get_best_model(evals[i])
+            best_result = self.get_best_scores(evals[i])
             # TODO: what is the right selection mechansim? test? train? or val?
-            if best_result.accuracy.val> best_score:
-                best_score, best_params = best_result.accuracy.val, params 
+            if best_result.accuracy.val > best_score:
+                best_score, best_params = best_result.accuracy.val, params
         return best_params, best_score
 
     def evaluation_results_to_df(
@@ -587,7 +685,7 @@ class GraphTrainer:
         evaluation_results: List[EvalResults],
         outname: str,
         export: bool = False,
-        exclude_fields: List[str] = ['params'],
+        exclude_fields: List[str] = ["params"],
     ):
         data = []
         for er in evaluation_results:

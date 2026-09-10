@@ -1,7 +1,7 @@
 import argparse
 from dataclasses import dataclass, field
 import numpy as np
-from typing import List, Literal, Any, Dict
+from typing import List, Literal, Any, Dict, Tuple 
 import torch
 from torch_geometric.data import Data, InMemoryDataset
 import itertools
@@ -229,7 +229,17 @@ class Params:
 class TTV:
     train: Any
     test: Any
-    val: Any
+    val: Any 
+
+
+@dataclass 
+class GridSearchParams: 
+    lr: Tuple[float]
+    wd: Tuple[float]
+    num_layers: Tuple[int]
+    hid_dim: Tuple[int]
+    dropout: Tuple[float]
+    batch_size: Tuple[int]
 
 
 @dataclass
@@ -245,6 +255,7 @@ class EvalResults:
     rmse: TTV
     M: int
     seed: int = None 
+    params: Dict = None 
 
     def __repr__(self):
         return (

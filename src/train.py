@@ -27,6 +27,7 @@ from .config import (
     Params,
     EvalResults,
     TTV,
+    GridSearchParams,
     TimeTest,
 )
 
@@ -70,7 +71,7 @@ class GraphTrainer:
     def set_params(self, **params):
         for k, v in params.items():
             setattr(self.params, k, v)
-        return self
+        return self.params
 
     def initialize_node(
         self,
@@ -236,7 +237,8 @@ class GraphTrainer:
                 val=mean_absolute_error(val_true, val_pred),
             ),
             M=None,
-            seed=self.params.seed, 
+            seed=self.params.seed,
+            params=self.params, 
         )
 
     def evaluate_graph_cls(
@@ -558,15 +560,26 @@ class GraphTrainer:
                 )
         return np.array(result_arr), np.array(param_arr)
 
-    def grid_search(self, param_grid: Dict, maxiter: int = 50):
+    def grid_search(
+        self,
+        dataset: InMemoryDataset,
+        param_grid: GridSearchParams,
+        graph_type: Literal["stnd", "tensor"],
+        maxiter: int = 50,
+    ):
         best_score, best_params = 0, None
-        for _ in range(maxiter):
-            params = {k: random.choice(v) for k, v in param_grid.items()}
+        evals: Dict[int, EvalResults] = {}
+        for i in range(maxiter):
+            params = {k: random.choice(v) for k, v in param_grid.__dict__.items()}
             self.set_params(**params)
-            train_results = self.fit_train()
-            best_result = self.get_best_model(train_results)
-            if best_result.accuracy.test > best_score:
-                best_score, best_params = best_result.accuracy.test, params
+            if graph_type == "stnd":
+                evals[i] = self.evaluate_graph_cls_stnd(dataset)
+            elif graph_type == "tensor":
+                evals[i] = self.evaluate_graph_cls(dataset)
+            best_result = self.get_best_model(evals[i])
+            # TODO: what is the right selection mechansim? test? train? or val?
+            if best_result.accuracy.val> best_score:
+                best_score, best_params = best_result.accuracy.val, params 
         return best_params, best_score
 
     def evaluation_results_to_df(
@@ -574,7 +587,7 @@ class GraphTrainer:
         evaluation_results: List[EvalResults],
         outname: str,
         export: bool = False,
-        exclude_fields: List[str] = [],
+        exclude_fields: List[str] = ['params'],
     ):
         data = []
         for er in evaluation_results:

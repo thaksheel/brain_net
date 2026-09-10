@@ -18,7 +18,7 @@ params = Params(
     M=3,
     Mlst=[3, 3],
     hid_dim=64,
-    epochs=100,
+    epochs=200,
     lr=5e-3,
     wd=5e-3,
     dropout=0.65,
@@ -37,7 +37,7 @@ gsp = GridSearchParams(
     hid_dim=[16, 64, 128],
 )
 
-trainer = GraphTrainer(params, display=True)
+trainer = GraphTrainer(params, display=False)
 best_params, best_score = trainer.grid_search(
     dataset,
     gsp,

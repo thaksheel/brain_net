@@ -17,6 +17,7 @@ import itertools
 from sklearn.model_selection import train_test_split
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.loader import DataLoader
+from tqdm import tqdm
 
 from .models.tmphn_graph import TMPHN_Graph_Cls
 from .models.gnn import GIN
@@ -569,7 +570,7 @@ class GraphTrainer:
     ):
         best_score, best_params = 0, None
         evals: Dict[int, EvalResults] = {}
-        for i in range(maxiter):
+        for i in tqdm(range(maxiter)):
             params = {k: random.choice(v) for k, v in param_grid.__dict__.items()}
             self.set_params(**params)
             if graph_type == "stnd":

@@ -11,6 +11,7 @@ params = Params(
     method="T-MPHN",
     dataset="HCPGender",
     num_classes=None,
+    num_features=None, 
     num_layers=2,
     M=3,
     Mlst=[3, 3],
@@ -31,6 +32,7 @@ for name in names:
     dataset = TUDataset(root="data/TUDataset", name=name)  # 4100
     params.num_features = dataset.num_features
     params.num_classes = dataset.num_classes
+    params.dataset = name 
 
     trainer = GraphTrainer(params, display=True)
     eval_results = trainer.evaluate_graph_cls_stnd(dataset)
@@ -38,7 +40,7 @@ for name in names:
     df_results = trainer.evaluation_results_to_df(
         eval_results,
         outname=f"./exports/tu_results_{name.lower()}.xlsx",
-        export=True,
+        export=False,
         exclude_fields=[],
     )
     print(f"\n---> best_restuls: {best_results}")

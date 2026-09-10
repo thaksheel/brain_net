@@ -244,6 +244,7 @@ class EvalResults:
     mae: TTV
     rmse: TTV
     M: int
+    seed: int = None 
 
     def __repr__(self):
         return (
@@ -258,6 +259,7 @@ class EvalResults:
             f"mae={self.mae}, \n"
             f"rmse={self.rmse}, \n"
             f"M={self.M}"
+            f"seed={self.seed}"
             f")"
         )
 

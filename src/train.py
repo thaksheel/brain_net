@@ -11,7 +11,7 @@ from sklearn.metrics import (
     root_mean_squared_error,
     mean_absolute_error,
 )
-from typing import Dict, List
+from typing import Dict, List, Optional, Literal, Tuple
 import seaborn as sns
 import itertools
 from sklearn.model_selection import train_test_split
@@ -71,36 +71,6 @@ class GraphTrainer:
         for k, v in params.items():
             setattr(self.params, k, v)
         return self
-
-    def train_results_to_df(
-        self,
-        train_results: list[EvalResults],
-        outname: str,
-        export: bool = False,
-        exclude_fileds: List[str] = ["model"],
-    ) -> pd.DataFrame:
-        data = []
-        for tr in train_results:
-            d = tr.__dict__
-            result = {}
-            for k, v in d.items():
-                if isinstance(v, TTV):
-                    result[k + "_train"] = (
-                        v.train.item() if isinstance(v.train, torch.Tensor) else v.train
-                    )
-                    result[k + "_test"] = (
-                        v.test.item() if isinstance(v.test, torch.Tensor) else v.test
-                    )
-                    result[k + "_val"] = (
-                        v.val.item() if isinstance(v.val, torch.Tensor) else v.val
-                    )
-                    exclude_fileds.append(k)
-                result[k] = v
-            data.append({k: v for k, v in result.items() if k not in exclude_fileds})
-        df = pd.DataFrame(data)
-        if export:
-            df.to_excel(outname)
-        return df
 
     def initialize_node(
         self,
@@ -266,6 +236,7 @@ class GraphTrainer:
                 val=mean_absolute_error(val_true, val_pred),
             ),
             M=None,
+            seed=self.params.seed, 
         )
 
     def evaluate_graph_cls(
@@ -298,6 +269,27 @@ class GraphTrainer:
         ).to(self.device)
         eval_results = self.train_graph_cls(model, ttv_loader)
         return eval_results
+
+    def run_stratified_n_iteractions(
+        self,
+        seeds: List[int],
+        dataset: InMemoryDataset,
+        graph_type: Literal["stnd", "tensor"],
+    ):
+        evals: List[EvalResults] = []
+        for seed in seeds:
+            self.params.seed = seed
+            if graph_type == "stnd":
+                eval_results = self.evaluate_graph_cls_stnd(dataset)
+                evals.append(eval_results)
+            elif graph_type == "tensor":
+                eval_results = self.evaluate_graph_cls(dataset)
+                evals.append(eval_results)
+            else:
+                raise NotImplementedError(
+                    f"---> graph_type={graph_type} not implemented yet."
+                )
+        return evals
 
     def optimize_graph_cls(
         self,
@@ -582,7 +574,7 @@ class GraphTrainer:
         evaluation_results: List[EvalResults],
         outname: str,
         export: bool = False,
-        exclude_fields: List[str] = ["model"],
+        exclude_fields: List[str] = [],
     ):
         data = []
         for er in evaluation_results:

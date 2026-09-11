@@ -3,37 +3,42 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from src.neurograph import *
+from src.train import GraphTrainer
+from src.config import Params
+from src.utils.datasets import NeuroGraphDataset
 
-params = NeuroGraphParams(
-    root_folder="C:/Users/tnall/Downloads/",
-    # root_folder="D:/hcp-data/",
-    # root_folder="E:/hcp-data/",
-    dataset_name="HCPGender",
-    device=torch.device("cpu"),
-    model="GraphConv",
-    epochs=100,
+root_folder = "D:/datasets/hcp_data/"
+dataset_name = "HCPGender"
+dataset = NeuroGraphDataset(root=root_folder, name=dataset_name)
+params = Params(
+    num_classes=dataset.num_classes,
+    num_features=dataset.num_features,
+    dataset=dataset_name,
+    method="T-MPHN",
+    num_layers=2,
+    M=3,
+    Mlst=[3, 3],
+    hid_dim=32,
+    epochs=50,
+    lr=5e-3,
+    wd=5e-3,
+    dropout=0.65,
+    train_ratio=0.6,
+    valid_ratio=0.2,
+    seed=42,
+    device="cpu",
     batch_size=64,
-    lr=1e-5,
-    wd=1e-4,
 )
-neurograph = NGEstimator(params=params, display=True)
-ng_model, evaluation_results = neurograph.fit_train()
-df = neurograph.evaluation_results_to_df(
-    evaluation_results,
-    outname=None,
-    export=False,
-    exclude_fields=["model", "M"],
-)
-df.to_excel("./exports/results_gender.xlsx")
-best_results = neurograph.get_best_eval_results(evaluation_results)
 
-print(
-    f"best_results >> "
-    f"epoch={best_results.epoch} "
-    f"test_acc={100*best_results.accuracy.test:2f}% "
-    f"test_f1={100*best_results.f1.test:2f}% "
-    f"total_runtime={np.sum([er.duration for er in evaluation_results]):2f}s"
+trainer = GraphTrainer(params, display=True, progress_bar=False)
+eval_results = trainer.evaluate_ng_cls(dataset, model_name="GATConv")
+best_results = trainer.get_best_eval_results(eval_results)
+df_results = trainer.evaluation_results_to_df(
+    eval_results,
+    outname="./exports/ng_results0.xlsx",
+    export=False,
+    exclude_fields=[],
 )
-print(df.head())
+
+print(f"\n---> best_restuls: {best_results}")
 print("END")

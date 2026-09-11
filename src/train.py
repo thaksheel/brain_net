@@ -5,6 +5,19 @@ import numpy as np
 import time
 from matplotlib import pyplot as plt
 import random
+from torch_geometric.nn import (
+    APPNP,
+    MLP,
+    GCNConv,
+    GINConv,
+    SAGEConv,
+    GraphConv,
+    TransformerConv,
+    ChebConv,
+    GATConv,
+    SGConv,
+    GeneralConv,
+)
 from sklearn.metrics import (
     accuracy_score,
     f1_score,
@@ -36,6 +49,7 @@ from .config import (
     GridSearchParams,
     TimeTest,
 )
+from .models.residual_gnn import ResidualGNNs
 
 
 class GraphTrainer:
@@ -348,6 +362,49 @@ class GraphTrainer:
         eval_results = self.train_graph_cls(model, ttv_loader)
         return eval_results
 
+    def get_base_gnn(self, model_name: str):
+        base_models = {
+            "APPNP": APPNP,
+            "MLP": MLP,
+            "GCNConv": GCNConv,
+            "GINConv": GINConv,
+            "SAGEConv": SAGEConv,
+            "GraphConv": GraphConv,
+            "TransformerConv": TransformerConv,
+            "ChebConv": ChebConv,
+            "GATConv": GATConv,
+            "SGConv": SGConv,
+            "GeneralConv": GeneralConv,
+        }
+        return base_models[model_name]
+
+    def evaluate_ng_cls(
+        self,
+        dataset: InMemoryDataset,
+        model_name: Literal[
+            "GCNConv",
+            "GINConv",
+            "GraphConv",
+            "TransformerConv",
+            "GATConv",
+            "GeneralConv",
+            "SGConv",
+            "ChebConv",
+            "SAGEConv",
+            "APPNP",
+            "MLP",
+        ] = "GCNConv",
+    ):
+        ttv_dataset = self.ttv_splits(dataset)
+        ttv_loader = self.get_dataloader(ttv_dataset)
+        model = ResidualGNNs(
+            args=self.params,
+            model_name=model_name,
+            GNN=self.get_base_gnn(model_name),
+        )
+        eval_results = self.train_graph_cls(model, ttv_loader)
+        return eval_results
+
     def evaluate_graph_cls_stnd(self, dataset: InMemoryDataset):
         ttv_dataset = self.ttv_splits(dataset)
         ttv_loader = self.get_dataloader(ttv_dataset)
@@ -442,7 +499,9 @@ class GraphTrainer:
         )
         criterion = torch.nn.CrossEntropyLoss()
         results: List[EvalResults] = []
-        for epoch in tqdm(range(self.params.epochs), disable=not self.progress_bar, desc="Graph Train"):
+        for epoch in tqdm(
+            range(self.params.epochs), disable=not self.progress_bar, desc="Graph Train"
+        ):
             # TODO: remove all time stamps later
             start = time.time()
             trt, trp, tr_loss, out_tr = self.optimize_graph_cls(

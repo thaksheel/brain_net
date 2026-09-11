@@ -207,7 +207,7 @@ class NGEstimator:
             pred = out.argmax(dim=1)
             preds.extend(pred)
             loss = criterion(out, data.y)
-            losses.append(loss.item()) 
+            losses.append(loss.item())
         trues = [t.item() for t in trues]
         preds = [t.item() for t in preds]
         return trues, preds, np.mean(losses)
@@ -336,7 +336,7 @@ class NGEstimator:
 
     def exhaustive_search(self, param_grid: Dict):
         keys, values = zip(*param_grid.items())
-        best_score, best_params = 0, None 
+        best_score, best_params = 0, None
         result_arr = []
         param_arr = []
         combos = list(itertools.product(*values))

@@ -1,11 +1,14 @@
-import pandas as pd 
+import pandas as pd
 
 from src.train import GraphTrainer
 from src.config import Params, GridSearchParams
 from src.utils.datasets import NeuroGraphDataset
 
+root_folder = "C:/Users/tnall/Downloads/"
 root_folder = "D:/datasets/hcp_data/"
 names = ["HCPGender", "HCPAge", "HCPFI", "HCPTask", "HCPWM"]
+names = ["HCPGender", "HCPAge"]
+names = ["HCPTask", "HCPWM"]
 for name in names:
     dataset = NeuroGraphDataset(root=root_folder, name=name)
     params = Params(

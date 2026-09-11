@@ -226,7 +226,7 @@ class GraphTrainer:
     def compute_auc_metrics(self, y_true, logits):
         # Convert logits → probabilities
         probs = torch.softmax(logits, dim=1).cpu().numpy()[:, 1]
-        roc_auc = roc_auc_score(y_true, probs)
+        roc_auc = roc_auc_score(y_true, probs, multi_class="ovo")
         pr_auc = average_precision_score(y_true, probs)
         return {
             "roc_auc": roc_auc,
@@ -252,26 +252,48 @@ class GraphTrainer:
         val_logits: torch.Tensor,
     ):
         # Medical metrics
-        train_med = self.compute_alt_metrics(train_true, train_pred)
-        test_med = self.compute_alt_metrics(test_true, test_pred)
-        val_med = self.compute_alt_metrics(val_true, val_pred)
-
-        # AUC metrics (requires logits)
-        train_auc = (
-            self.compute_auc_metrics(train_true, train_logits)
-            if train_logits is not None
-            else {}
-        )
-        test_auc = (
-            self.compute_auc_metrics(test_true, test_logits)
-            if test_logits is not None
-            else {}
-        )
-        val_auc = (
-            self.compute_auc_metrics(val_true, val_logits)
-            if val_logits is not None
-            else {}
-        )
+        if self.params.num_classes == 2:
+            train_med = self.compute_alt_metrics(train_true, train_pred)
+            test_med = self.compute_alt_metrics(test_true, test_pred)
+            val_med = self.compute_alt_metrics(val_true, val_pred)
+            # AUC metrics (requires logits)
+            train_auc = self.compute_auc_metrics(train_true, train_logits)
+            test_auc = self.compute_auc_metrics(test_true, test_logits)
+            val_auc = self.compute_auc_metrics(val_true, val_logits)
+        else:
+            train_med = {
+                "precision": None,
+                "recall": None,
+                "sensitivity": None,
+                "specificity": None,
+                "npv": None,
+            }
+            test_med = {
+                "precision": None,
+                "recall": None,
+                "sensitivity": None,
+                "specificity": None,
+                "npv": None,
+            }
+            val_med = {
+                "precision": None,
+                "recall": None,
+                "sensitivity": None,
+                "specificity": None,
+                "npv": None,
+            }
+            train_auc = {
+                "roc_auc": None,
+                "pr_auc": None,
+            }
+            test_auc = {
+                "roc_auc": None,
+                "pr_auc": None,
+            }
+            val_auc = {
+                "roc_auc": None,
+                "pr_auc": None,
+            }
 
         return EvalResults(
             epoch=epoch,
@@ -422,7 +444,7 @@ class GraphTrainer:
         seeds: List[int],
         dataset: InMemoryDataset,
         graph_type: Literal["stnd", "tensor", "ng"],
-        model_name: str = None, 
+        model_name: str = None,
     ):
         evals: List[EvalResults] = []
         for seed in seeds:
@@ -504,7 +526,9 @@ class GraphTrainer:
         criterion = torch.nn.CrossEntropyLoss()
         results: List[EvalResults] = []
         for epoch in tqdm(
-            range(self.params.epochs), disable=not self.progress_bar, desc=f"Graph Train seed:{self.params.seed}"
+            range(self.params.epochs),
+            disable=not self.progress_bar,
+            desc=f"Graph Train seed:{self.params.seed}",
         ):
             # TODO: remove all time stamps later
             start = time.time()
@@ -729,7 +753,7 @@ class GraphTrainer:
         dataset: InMemoryDataset,
         param_grid: GridSearchParams,
         graph_type: Literal["stnd", "tensor", "ng"],
-        model_name: str = None, 
+        model_name: str = None,
         maxiter: int = 50,
     ):
         best_score, best_params = 0, None

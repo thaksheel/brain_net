@@ -421,7 +421,8 @@ class GraphTrainer:
         self,
         seeds: List[int],
         dataset: InMemoryDataset,
-        graph_type: Literal["stnd", "tensor"],
+        graph_type: Literal["stnd", "tensor", "ng"],
+        model_name: str = None, 
     ):
         evals: List[EvalResults] = []
         for seed in seeds:
@@ -431,6 +432,9 @@ class GraphTrainer:
                 evals.append(eval_results)
             elif graph_type == "tensor":
                 eval_results = self.evaluate_graph_cls(dataset)
+                evals.append(eval_results)
+            elif graph_type == "ng":
+                eval_results = self.evaluate_ng_cls(dataset, model_name)
                 evals.append(eval_results)
             else:
                 raise NotImplementedError(
@@ -500,7 +504,7 @@ class GraphTrainer:
         criterion = torch.nn.CrossEntropyLoss()
         results: List[EvalResults] = []
         for epoch in tqdm(
-            range(self.params.epochs), disable=not self.progress_bar, desc="Graph Train"
+            range(self.params.epochs), disable=not self.progress_bar, desc=f"Graph Train seed:{self.params.seed}"
         ):
             # TODO: remove all time stamps later
             start = time.time()
@@ -724,7 +728,8 @@ class GraphTrainer:
         self,
         dataset: InMemoryDataset,
         param_grid: GridSearchParams,
-        graph_type: Literal["stnd", "tensor"],
+        graph_type: Literal["stnd", "tensor", "ng"],
+        model_name: str = None, 
         maxiter: int = 50,
     ):
         best_score, best_params = 0, None
@@ -736,6 +741,8 @@ class GraphTrainer:
                 evals[i] = self.evaluate_graph_cls_stnd(dataset)
             elif graph_type == "tensor":
                 evals[i] = self.evaluate_graph_cls(dataset)
+            elif graph_type == "ng":
+                evals[i] = self.evaluate_ng_cls(dataset, model_name=model_name)
             best_result = self.get_best_scores(evals[i])
             # TODO: what is the right selection mechansim? test? train? or val?
             if best_result.accuracy.val > best_score:
@@ -773,6 +780,6 @@ class GraphTrainer:
         return df
 
     def get_best_eval_results(self, eval_results: List[EvalResults]) -> EvalResults:
-        test_score = np.array([er.accuracy.test for er in eval_results])
+        test_score = np.array([er.accuracy.val for er in eval_results])
         best = np.argmax(test_score)
         return eval_results[best]

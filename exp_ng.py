@@ -7,8 +7,8 @@ from src.utils.datasets import NeuroGraphDataset
 root_folder = "C:/Users/tnall/Downloads/"
 root_folder = "D:/datasets/hcp_data/"
 names = ["HCPGender", "HCPAge", "HCPFI", "HCPTask", "HCPWM"]
-names = ["HCPGender", "HCPAge"]
 names = ["HCPTask", "HCPWM"]
+names = ["HCPGender", "HCPAge", "HCPTask"]
 for name in names:
     dataset = NeuroGraphDataset(root=root_folder, name=name)
     params = Params(
@@ -19,38 +19,38 @@ for name in names:
         num_layers=2,
         M=3,
         Mlst=[3, 3],
-        hid_dim=32,
-        epochs=50,
-        lr=5e-3,
-        wd=5e-3,
-        dropout=0.65,
-        train_ratio=0.6,
-        valid_ratio=0.2,
-        seed=42,
+        hid_dim=64,
+        epochs=100,
+        lr=1e-5,
+        wd=5e-4,
+        dropout=0.5,
+        train_ratio=0.7,
+        valid_ratio=0.1,
+        seed=123,
         device="cpu",
         batch_size=64,
     )
-    gsp = GridSearchParams(
-        lr=[5e-3, 5e-2, 5e-1, 1e-3, 1e-2, 1e-1],
-        wd=[5e-3, 5e-2, 5e-1, 1e-3, 1e-2, 1e-1],
-        num_layers=[2],
-        batch_size=[17, 32, 64, 128],
-        dropout=[0.25, 0.5, 0.75, 0.8],
-        hid_dim=[16, 32, 64, 128],
-    )
-    trainer = GraphTrainer(params, display=False, progress_bar=True)
+    # gsp = GridSearchParams(
+    #     lr=[5e-3, 5e-2, 5e-1, 1e-3, 1e-2, 1e-1],
+    #     wd=[5e-3, 5e-2, 5e-1, 1e-3, 1e-2, 1e-1],
+    #     num_layers=[2],
+    #     batch_size=[17, 32, 64, 128],
+    #     dropout=[0.25, 0.5, 0.75, 0.8],
+    #     hid_dim=[16, 32, 64, 128],
+    # )
 
-    # NOTE: params tuning
-    trainer.params.epochs = 15
-    best_params, best_score = trainer.grid_search(
-        dataset, gsp, graph_type="ng", maxiter=50, model_name="GATConv"
-    )
-    updated_params = trainer.set_params(**best_params)
-    print(f"grid_search results: {updated_params}")
+    # # NOTE: params tuning
+    # trainer.params.epochs = 15
+    # best_params, best_score = trainer.grid_search(
+    #     dataset, gsp, graph_type="ng", maxiter=50, model_name="GATConv"
+    # )
+    # updated_params = trainer.set_params(**best_params)
+    # print(f"grid_search results: {updated_params}")
 
     # NOTE: CV evaluations
+    trainer = GraphTrainer(params, display=False, progress_bar=True)
     trainer.params.epochs = 50
-    seeds = [i for i in range(42, 42 + 30, 1)]
+    seeds = [i for i in range(42, 42 + 1, 1)]
     evals = trainer.run_stratified_n_iteractions(
         seeds=seeds, dataset=dataset, graph_type="ng", model_name="GATConv"
     )
@@ -62,6 +62,6 @@ for name in names:
             export=False,
         )
         df = pd.concat([df, df_])
-    df.to_excel(f"./exports/rslt_{name.lower()}_exp_ng.xlsx")
+    df.to_excel(f"./exports/rslt_{name.lower()}_exp_ng1.xlsx")
 
 print("END")

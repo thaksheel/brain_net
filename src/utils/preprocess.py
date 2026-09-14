@@ -5,7 +5,7 @@ import json
 import torch
 import re
 import os
-from typing import List, Literal, Dict, Annotated
+from typing import List, Literal, Dict, Annotated, Tuple
 from numpy.typing import NDArray
 from dataclasses import dataclass
 from sklearn.decomposition import NMF, PCA
@@ -14,6 +14,9 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from scipy.sparse import csgraph
 from scipy.linalg import eigh
 from torch_geometric.data import Data
+from numpy.typing import NDArray
+
+from .edge_construct import construct_adj, construct_corr
 
 
 @dataclass
@@ -96,6 +99,42 @@ class Preprocess:
         self.normalize = normalize
         self.patient_ids = None
 
+    def from_node_features_to_graph_dataset(
+        self, folder_path: str, atlas: str
+    ) -> Tuple[Node, Edge, NDArray, List]:
+        df_targets = pd.read_csv(folder_path + "targets.csv")
+        patient_ids = df_targets.IID.astype(str).str.zfill(7).tolist()
+        errors = []
+        edges: List[Edge] = []
+        nodes: List[Node] = []
+        for pid in patient_ids:
+            df = pd.read_csv(
+                folder_path
+                + f"{atlas}/dataset-ADHDfMRIPrep_sub-{pid}_task-rest_desc-fMRIROItimeseries_atlas-{atlas}_preproc-fMRIPrep.csv"
+            )
+            N = df.to_numpy()
+            if (N == 0).sum() > 0:
+                errors.append((atlas, pid))
+            else:
+                corr = construct_corr(N)
+                A = construct_adj(corr, threshold=5)
+                nodes.append(
+                    Node(
+                        patient_id=pid,
+                        v=None,
+                        data=N,
+                    )
+                )
+                edges.append(
+                    Edge(
+                        patient_id=pid,
+                        data=corr,
+                        A=A,
+                        v=None,
+                    )
+                )
+        return nodes, edges, df_targets.Diagnosis.to_numpy().astype(int), errors
+
     def get_graph_dataset(
         self, nodes: List[Node], edges: List[Edge], y: List[float]
     ) -> List[Data]:
@@ -115,6 +154,58 @@ class Preprocess:
                     x=torch.from_numpy(n.data).float(),
                     edge_index=edge_index,
                     y=torch.tensor([y[i]]),
+                )
+            )
+        return dataset
+
+    def get_graph_dataset_v2(
+        self, nodes: List[Node], edges: List[Edge], y: List[float]
+    ) -> List[Data]:
+        """Used for ADHD when processing through correlation matrix."""
+        max_node_dim = np.max([n.data.shape[1] for n in nodes])
+        exclude_patients = [
+            int(n.patient_id) for n in nodes if n.data.shape[1] != max_node_dim
+        ]
+        dataset: List[Data] = []
+        for node_idx, node in enumerate(nodes):
+            if int(node.patient_id) in exclude_patients:
+                continue
+            edge = None
+            for e in edges:
+                if e.patient_id == node.patient_id:
+                    edge = e
+                    break
+            if edge is None:
+                print(f"Warning: No edge found for patient {node.patient_id}")
+                continue
+            # Use correlation matrix as node features
+            # TODO: review the other file this method depends on
+            corr_matrix = edge.data.astype(np.float32)  # shape should be (116, 116)
+            node_features = corr_matrix
+            if node_features.shape[0] != max_node_dim:
+                print(
+                    f"Warning: Patient {node.patient_id} has {node_features.shape[0]} nodes, expected {max_node_dim}. Skipping."
+                )
+                continue
+            # Build edge_index from adjacency matrix
+            src, dst = edge.A.nonzero()
+            edge_index_np = np.vstack([src, dst])
+            edge_index = torch.from_numpy(edge_index_np).long()
+            # Verify edge_index indices are within valid range
+            num_nodes = node_features.shape[0]
+            if edge_index.size(1) > 0:
+                max_idx = edge_index.max().item()
+                if max_idx >= num_nodes:
+                    print(
+                        f"Warning: Invalid edge indices for patient {node.patient_id}. Node features shape: {node_features.shape}, Max edge index: {max_idx}. Skipping."
+                    )
+                    continue
+            label = y[node_idx]
+            dataset.append(
+                Data(
+                    x=torch.from_numpy(node_features).float(),
+                    edge_index=edge_index,
+                    y=torch.tensor([label]),
                 )
             )
         return dataset

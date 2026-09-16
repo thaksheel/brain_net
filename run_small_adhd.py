@@ -8,17 +8,17 @@ from typing import List
 
 from src.utils.preprocess import Preprocess
 from src.utils.datasets import GraphDataset
-from src.config import Params
+from src.config import Params, GridSearchParams
 from src.train import GraphTrainer
 
 outfiles = [
-    "./exports/rslt_a116_th.xlsx",
-    "./exports/rslt_p264_th.xlsx",
-    "./exports/rslt_s100_th.xlsx",
+    "./exports/rslt_a116_.xlsx",
+    "./exports/rslt_p264_.xlsx",
+    "./exports/rslt_s100_.xlsx",
 ]
 atlas = ["Schaefer100"]
+atlas = ["PP264"]
 atlas = ["AAL116", "PP264", "Schaefer100"]
-atlas = ["AAL116", "Schaefer100"]
 folder_name = "./data/adhd/"
 rois = [116, 264, 100]
 for k, a in enumerate(atlas):
@@ -45,29 +45,48 @@ for k, a in enumerate(atlas):
         device="cpu",
         batch_size=128,
     )
-    trainer = GraphTrainer(params, display=False, progress_bar=True)
-    eval_results = trainer.evaluate_graph_cls(dataset)
+    # trainer = GraphTrainer(params, display=False, progress_bar=True)
+    # eval_results = trainer.evaluate_graph_cls(dataset)
     # eval_results = trainer.evaluate_ng_cls(dataset, model_name="GATConv")
     # eval_results = trainer.evaluate_graph_cls_stnd(dataset)
-    df_results = trainer.evaluation_results_to_df(
-        eval_results,
-        outname=outfiles[k],
-        export=True,
-        exclude_fields=[],
-    )
-    # NOTE: running cv evals
-    # seeds = [i for i in range(42, 52, 1)]
-    # evals = trainer.run_stratified_n_iteractions(
-    #     seeds=seeds, dataset=dataset, graph_type="stnd"
+    # df_results = trainer.evaluation_results_to_df(
+    #     eval_results,
+    #     outname=outfiles[k],
+    #     export=True,
+    #     exclude_fields=[],
     # )
-    # df = pd.DataFrame()
-    # for i, seed in enumerate(seeds):
-    #     df_ = trainer.evaluation_results_to_df(
-    #         evaluation_results=evals[i],
-    #         outname=outfiles[k],
-    #         export=False,
-    #     )
-    #     df = pd.concat([df, df_])
-    # df.to_excel(outfiles[k])
+
+    # NOTE: Run Grid Search 
+    gsp = GridSearchParams(
+        lr=[5e-3, 5e-2, 5e-1, 1e-3, 1e-2, 1e-1],
+        wd=[5e-3, 5e-2, 5e-1, 1e-3, 1e-2, 1e-1],
+        num_layers=[2],
+        batch_size=[16, 32, 64, 128],
+        dropout=[0.25, 0.5, 0.75, 0.8],
+        hid_dim=[16, 32, 64, 128],
+    )
+    trainer = GraphTrainer(params, display=False, progress_bar=True)
+
+    # NOTE: params tuning
+    trainer.params.epochs = 100
+    best_params, best_score = trainer.grid_search(
+        dataset, gsp, graph_type="stnd", maxiter=50, model_name="GATConv"
+    )
+    updated_params = trainer.set_params(**best_params)
+    print(f"grid_search results: {updated_params}")
+    # NOTE: running cv evals
+    seeds = [i for i in range(42, 52, 1)]
+    evals = trainer.run_stratified_n_iteractions(
+        seeds=seeds, dataset=dataset, graph_type="stnd"
+    )
+    df = pd.DataFrame()
+    for i, seed in enumerate(seeds):
+        df_ = trainer.evaluation_results_to_df(
+            evaluation_results=evals[i],
+            outname=outfiles[k],
+            export=False,
+        )
+        df = pd.concat([df, df_])
+    df.to_excel(outfiles[k])
 
 print("END")

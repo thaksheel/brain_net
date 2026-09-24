@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch_geometric.nn import aggr
 from torch.nn import ModuleList
+from torch_geometric.nn import global_mean_pool
 
 from ..config import Params
 
@@ -11,7 +12,7 @@ class ResidualGNNs(torch.nn.Module):
         self,
         args: Params,
         GNN: torch.nn.Module,
-        model_name: str, 
+        model_name: str,
     ):
         super().__init__()
         self.convs = ModuleList()

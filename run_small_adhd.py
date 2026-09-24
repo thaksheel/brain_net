@@ -12,12 +12,10 @@ from src.config import Params, GridSearchParams
 from src.train import GraphTrainer
 
 outfiles = [
-    "./exports/rslt_a116_.xlsx",
-    "./exports/rslt_p264_.xlsx",
-    "./exports/rslt_s100_.xlsx",
+    "./exports/rslt_a116_stnd.xlsx",
+    "./exports/rslt_p264_stnd.xlsx",
+    "./exports/rslt_s100_stnd.xlsx",
 ]
-atlas = ["Schaefer100"]
-atlas = ["PP264"]
 atlas = ["AAL116", "PP264", "Schaefer100"]
 folder_name = "./data/adhd/"
 rois = [116, 264, 100]
@@ -68,14 +66,16 @@ for k, a in enumerate(atlas):
     trainer = GraphTrainer(params, display=False, progress_bar=True)
 
     # NOTE: params tuning
-    trainer.params.epochs = 100
+    trainer.params.epochs = 50
     best_params, best_score = trainer.grid_search(
         dataset, gsp, graph_type="stnd", maxiter=50, model_name="GATConv"
     )
     updated_params = trainer.set_params(**best_params)
     print(f"grid_search results: {updated_params}")
+
     # NOTE: running cv evals
-    seeds = [i for i in range(42, 52, 1)]
+    trainer.params.epochs = 100
+    seeds = [i for i in range(42, 42 + 30, 1)]
     evals = trainer.run_stratified_n_iteractions(
         seeds=seeds, dataset=dataset, graph_type="stnd"
     )

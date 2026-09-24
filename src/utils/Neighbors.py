@@ -40,7 +40,6 @@ class NeighborFinder:
         neig_lst = dask.compute(neig_list, num_workers=os.cpu_count() * 2)
         neig_lst = sum(neig_lst, [])  # un-neste
         batch_dict = dict(zip(target_nodes, neig_lst))
-
         return batch_dict
 
     def find_neigs_of_one_node(self, target_node):

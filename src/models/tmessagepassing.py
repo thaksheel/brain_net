@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 import math
 import copy
-import itertools 
+import itertools
 
 
 class TMessagePassing(nn.Module):
@@ -43,11 +43,7 @@ class TMessagePassing(nn.Module):
 
         # load to GPU
         tn = torch.LongTensor([target_node]).to(self.device)
-        self_feat = (
-            self.features(tn)
-            .squeeze()
-            .to(self.device)
-        )
+        self_feat = self.features(tn).squeeze().to(self.device)
 
         if not edges_contain_node:
             # empty neighbors, no aggregation
@@ -154,8 +150,8 @@ class Encoder(nn.Module):
         self.features = features
         self.input_dim = input_dim
         self.output_dim = output_dim
-        self.combine = args.combine 
-        self.args = args 
+        self.combine = args.combine
+        self.args = args
         self.aggregator: TMessagePassing = aggregator
         self.device = torch.device(args.device)
         if base_model != None:
@@ -204,7 +200,7 @@ class Encoder(nn.Module):
         W, b = self.W.to(self.device), self.b.to(self.device)
         AXW = torch.mm(combined, W)
         y = AXW + b
-        output = F.relu(y) 
+        output = F.relu(y)
         output = F.dropout(output, p=self.args.dropout, training=self.training)
         return output  # output is in dimension (num_of_nodes, embed_dim)
 

@@ -348,6 +348,14 @@ def from_pygeo_to_matrices(dataset: InMemoryDataset) -> tuple:
     return A_np, X_np, y_np
 
 
+def from_edge_index_to_A(T: torch.Tensor):
+    rows = T[0]
+    cols = T[1]
+    A = torch.zeros(rows.max().item() + 1, cols.max().item() + 1, dtype=torch.int)
+    A[rows, cols] = 1
+    return A
+
+
 def from_tu_to_matrices(dataset: InMemoryDataset):
     data, slices = dataset._data, dataset.slices
     num_graphs = dataset.len()

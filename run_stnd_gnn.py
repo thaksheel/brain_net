@@ -9,7 +9,7 @@ from src.config import Params
 
 params = Params(
     method="T-MPHN",
-    dataset="HCPGender",
+    dataset="HCPGender", 
     num_classes=None,
     num_features=None, 
     num_layers=2,

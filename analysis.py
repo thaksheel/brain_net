@@ -19,8 +19,19 @@ files = [
     "./exports/exports_msi/tu_results_nci1.xlsx",
     "./exports/exports_msi/tu_results_nci109.xlsx",
 ]
+files = [
+    "./exports/rslt_a116_stnd.xlsx",
+    "./exports/rslt_p264_stnd.xlsx",
+    "./exports/rslt_s100_stnd.xlsx",
+]
+files = [
+    "./exports/rslt_a116_th.xlsx",
+    "./exports/rslt_p264_th.xlsx",
+    "./exports/rslt_s100_th.xlsx",
+]
 # dataset_names = [c.split("rslt_")[1].split("_exp")[0] for c in files]
-dataset_names = [c.split("tu_results_")[1].strip(".xlsx") for c in files]
+dataset_names = [c.split("rslt_")[1].split("_th")[0] for c in files]
+# dataset_names = [c.split("tu_results_")[1].strip(".xlsx") for c in files]
 dfs = [pd.read_excel(fie) for fie in files]
 summary = [
     {

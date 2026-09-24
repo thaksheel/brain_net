@@ -29,6 +29,11 @@ class GIN(torch.nn.Module):
     def forward(self, batch):
         x = batch.x
         edge_index = batch.edge_index
+        # --- FIXME: remove edges with invalid node indices ---
+        num_nodes = x.size(0)
+        mask = (edge_index[0] < num_nodes) & (edge_index[1] < num_nodes)
+        edge_index = edge_index[:, mask]
+        # ----------------------------------------------------
         batch_index = batch.batch
         x = self.conv1(x, edge_index)
         x = self.bn1(x)

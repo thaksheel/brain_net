@@ -55,7 +55,6 @@ class TMessagePassing(nn.Module):
                     edge_embedding += self.aggregate_with_M(edge, target_node)
                 elif len(edge) < self.M:
                     edge_embedding += self.aggregate_with_c(edge, target_node)
-
             return edge_embedding
 
     def aggregate_with_M(self, edge, target_node):

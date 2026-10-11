@@ -675,15 +675,18 @@ class GraphTrainer:
             kwargs["epoch"],
             kwargs["method"],
             kwargs["duration"],
-            tr_loss,
-            te_loss,
-            val_loss,
+            tr_loss.detach().numpy(),
+            te_loss.detach().numpy(),
+            val_loss.detach().numpy(),
             Y[idx.train].cpu().numpy(),
             prediction_train,
             Y[idx.test].cpu().numpy(),
             prediction_test,
             Y[idx.val].cpu().numpy(),
             prediction_val,
+            train_logits=output_train.detach(), 
+            test_logits=output_test.detach(), 
+            val_logits=output_val.detach(), 
         )
         if self.display:
             print(

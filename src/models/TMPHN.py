@@ -54,19 +54,15 @@ class TMPHN(nn.Module):
                     base_model=None,
                 )
             else:  # for the subsequent layers
-                agg = TMessagePassing(
-                    lambda n: encoders[l - 1](n),
-                    neig_dict,
-                    self.Mlst[l],
-                    self.device,
-                )
+                prev = encoders[l - 1]
+                agg = TMessagePassing(prev, neig_dict, self.Mlst[l], self.device)
                 enc = Encoder(
-                    lambda n: encoders[l - 1](n),
-                    encoders[l - 1].output_dim,
+                    prev,
+                    prev.output_dim,
                     hidden_dim,
                     args,
                     aggregator=agg,
-                    base_model=encoders[l - 1],
+                    base_model=prev,
                 )
             encoders.append(enc)  # add the created encoder to the list
         self.enc = encoders[-1]

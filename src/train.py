@@ -44,10 +44,7 @@ from .utils import (
     read_data,
     add_self_loop,
 )
-from .models.tmphn_graph import TMPHN_Graph_Cls
-from .models.gnn import GIN
-from .models.residual_gnn import ResidualGNNs 
-from .models import TMPHN_Graph_Cls, GIN, ResidualGNNs 
+from .models import TMPHN_Graph_Cls, GIN, ResidualGNNs
 from . import (
     Params,
     EvalResults,
@@ -109,9 +106,7 @@ class GraphTrainer:
     ):
         if datafile is not None:
             H, X, Y = read_data(datafile)
-        self.params.input_dim = X.shape[1]
         self.params.num_classes = len(np.unique(Y))
-        start = time.time()
         if self.display:
             print("====> initializing model, optimizer, and data splits")
         model, optimizer, train_idx, val_idx, test_idx, data = initialize(
@@ -624,16 +619,19 @@ class GraphTrainer:
         model, optimizer, data, idx = self.initialize_node(X, H, Y, datafile=datafile)
         if self.params.method == "T-Spectral" or self.params.method == "T-Spatial":
             A, X = data["hypergraph"], data["X"]  # adjacency tensor
+            A = torch.from_numpy(A).to(self.device)
+        X = torch.from_numpy(X).to(self.device)
         Y = data["Y"]
+        Y: torch.Tensor = Y.to(self.device)
         train_results: list[EvalResults] = []
         for epoch in range(self.params.epochs):
             start_epoch = time.time()
             model.train()
             optimizer.zero_grad()
             if self.params.method == "T-Spectral" or self.params.method == "T-Spatial":
-                output_train = model(A, X)[idx.train]
+                output_train = model.forward(A, X)[idx.train]
             elif self.params.method == "T-MPHN":
-                output_train = model(idx.train)
+                output_train = model.forward(idx.train)
             train_loss = F.nll_loss(output_train, Y[idx.train])
             train_loss.backward()
             optimizer.step()
@@ -654,44 +652,45 @@ class GraphTrainer:
         self, model: torch.nn.Module, data: Dict, idx: TTV, **kwargs
     ):
         Y = data["Y"]
+        was_training = model.training
         model.eval()
-        if self.params.method == "T-Spectral" or self.params.method == "T-Spatial":
-            A, X = data["hypergraph"], data["X"]
-            output = model(A, X)  # transductive
-            output_train, output_val, output_test = (
-                output[idx.train],
-                output[idx.val],
-                output[idx.test],
-            )
-        elif self.params.method == "T-MPHN":
-            output_train, output_val, output_test = (
-                model(idx.train),
-                model(idx.val),
-                model(idx.test),
-            )  # inductive
-
-        prediction_train = output_train.max(1)[1].type_as(Y).cpu().numpy()
-        prediction_test = output_test.max(1)[1].type_as(Y).cpu().numpy()
-        prediction_val = output_val.max(1)[1].type_as(Y).cpu().numpy()
-        tr_loss = F.nll_loss(output_train, Y[idx.train])
-        te_loss = F.nll_loss(output_test, Y[idx.test])
-        val_loss = F.nll_loss(output_val, Y[idx.val])
+        with torch.no_grad():
+            if self.params.method in ("T-Spectral", "T-Spatial"):
+                A, X = data["hypergraph"], data["X"]
+                output = model(A, X)  # single transductive forward pass
+                output_train = output[idx.train]
+                output_val = output[idx.val]
+                output_test = output[idx.test]
+            elif self.params.method == "T-MPHN":
+                output_train = model(idx.train)
+                output_val = model(idx.val)
+                output_test = model(idx.test)
+            else:
+                raise ValueError(f"Unknown method: {self.params.method}")
+            tr_loss = F.nll_loss(output_train, Y[idx.train])
+            val_loss = F.nll_loss(output_val, Y[idx.val])
+            te_loss = F.nll_loss(output_test, Y[idx.test])
+        if was_training:
+            model.train()
+        prediction_train = output_train.argmax(1).cpu().numpy()
+        prediction_val = output_val.argmax(1).cpu().numpy()
+        prediction_test = output_test.argmax(1).cpu().numpy()
         tr = self.get_eval_results(
             kwargs["epoch"],
             kwargs["method"],
             kwargs["duration"],
-            tr_loss.detach().numpy(),
-            te_loss.detach().numpy(),
-            val_loss.detach().numpy(),
+            tr_loss.cpu().numpy(),
+            te_loss.cpu().numpy(),
+            val_loss.cpu().numpy(),
             Y[idx.train].cpu().numpy(),
             prediction_train,
             Y[idx.test].cpu().numpy(),
             prediction_test,
             Y[idx.val].cpu().numpy(),
             prediction_val,
-            train_logits=output_train.detach(),
-            test_logits=output_test.detach(),
-            val_logits=output_val.detach(),
+            train_logits=output_train.cpu(),
+            test_logits=output_test.cpu(),
+            val_logits=output_val.cpu(),
         )
         if self.display:
             print(
@@ -699,7 +698,7 @@ class GraphTrainer:
                 f"loss={tr.loss.train:.4f} "
                 f"test_acc={tr.accuracy.test*100:.2f}% "
                 f"f1_test={tr.f1_macro.test*100:.2f}% "
-                f"duration={tr.duration:.2f}s "
+                f"duration={tr.duration:.3f}s "
                 f"method={tr.method}"
             )
         return tr

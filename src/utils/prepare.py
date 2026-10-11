@@ -121,7 +121,7 @@ def initialize(H, X, Y, args, seed_split: int, device: torch.device):
         model.to(device)
     elif args.method == "T-MPHN":
         all_nodes = list(np.arange(X.shape[0]))
-        neig_dict = NeighborFinder(H, args.M).neig_for_targets(all_nodes)
+        neig_dict = NeighborFinder(H, args.M, seed_split).neig_for_targets(all_nodes)
         data = {"hypergraph": neig_dict, "X": X, "Y": Y.to(device)}
         model = TMPHN(
             X, neig_dict, args

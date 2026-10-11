@@ -16,10 +16,11 @@ class NeighborFinder:
     a neighbhorhood dictinoary where key = a targe node, value = a nested list contains its neighbors
     """
 
-    def __init__(self, H, M: int):
+    def __init__(self, H, M: int, seed: float):
         self.H = H
         self.E = H.shape[1]
         self.M = M
+        self.seed = seed 
         edge_dict = self.from_H_to_dict()
         self.adj_lst = [
             list(edge_dict[edge_id]) for edge_id in range(len(edge_dict))
@@ -53,7 +54,7 @@ class NeighborFinder:
                     edge_lst = list(edge)
                     tmp = copy.deepcopy(edge_lst)
                     tmp.remove(target_node)
-                    random.seed(42)
+                    random.seed(self.seed)
                     neigs_of_node.append(random.sample(tmp, self.M - 1) + [target_node])
         return neigs_of_node
 

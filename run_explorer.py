@@ -1,9 +1,10 @@
 import pickle
 import numpy as np
 import pandas as pd
+import time 
 from matplotlib import pyplot as plt
 
-from src import GraphTrainer, Params, EvalResults 
+from src import GraphTrainer, Params, EvalResults
 
 
 def load_dataset(path: str):
@@ -17,27 +18,27 @@ def load_dataset(path: str):
 
 
 params = Params(
-    method="T-Spatial",
+    method="T-MPHN",
     dataset="HCPGender",
     num_classes=2,
     num_features=None,
     num_layers=2,
-    M=2,
-    Mlst=[2, 2],
+    M=5,
+    Mlst=[5, 5],
     hid_dim=128,
-    epochs=200,
+    epochs=100,
     lr=0.001,
     wd=0.001,
-    dropout=0.65,
+    dropout=0.2,
     train_ratio=0.5,
     valid_ratio=0.25,
     seed=42,
-    device="cpu", # TODO: cuda does not work right now, error 
-    batch_size=32,
+    device="cpu",  # TODO: cuda does not work right now, error
+    batch_size=8,
 )
 
 datasets = ["cora-cc", "cora-ca", "dblp-ca", "citeseer-cc"]
-seeds = [s for s in range(42, 42+15, 1)]
+seeds = [s for s in range(42, 42 + 1, 1)]
 for d in datasets:
     best_results: list[EvalResults] = []
     for seed in seeds:
@@ -46,9 +47,14 @@ for d in datasets:
         params.num_features = X.shape[1]
         params.seed = seed
         gt = GraphTrainer(params=params, display=True)
+        start = time.time()
         train_results = gt.train_node_cls(X, H, y)
         be = gt.get_best_eval_results(train_results)
-        best_results.append(be)
-    df = gt.evaluation_results_to_df(best_results, outname=f"./exports/rslt_{d}.xlsx", export=True)
-    print(df.head())
+        best_results.append(be) 
+        print(be)
+        print(f"\n\tRuntime={(time.time() - start):.4f}s")
+    # df = gt.evaluation_results_to_df(
+    #     best_results, outname=f"./exports/rslt_{d}.xlsx", export=True
+    # )
+    # print(df.head())
 print("END")

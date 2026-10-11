@@ -23,7 +23,7 @@ class TMessagePassing(nn.Module):
         super(TMessagePassing, self).__init__()
 
         self.features = features
-        self.structure = structure
+        self.neighborhood_table = structure
         self.M = M
         self.device = device
 
@@ -39,7 +39,7 @@ class TMessagePassing(nn.Module):
 
     def aggregate_for_one_node(self, target_node):
         target_node = target_node.to(self.device)
-        edges_contain_node = self.structure[int(target_node)]
+        edges_contain_node = self.neighborhood_table[int(target_node)]
 
         # load to GPU
         tn = torch.LongTensor([target_node]).to(self.device)
@@ -128,7 +128,7 @@ class TMessagePassing(nn.Module):
         for i in range(c):
             alpha += ((-1) ** i) * math.comb(c, i) * ((c - i) ** self.M)
         a = c / alpha
-        degree = len(self.structure[int(node)])
+        degree = len(self.neighborhood_table[int(node)])
         return a / degree
 
 
@@ -173,7 +173,7 @@ class Encoder(nn.Module):
     def forward_with_features(self, X: torch.Tensor, neig_dict, nodes: torch.Tensor):
         # update aggregator to use dynamic features/neighbors
         self.aggregator.features = lambda idx: X[idx]
-        self.aggregator.structure = neig_dict
+        self.aggregator.neighborhood_table = neig_dict
         # standard TMPHN forward over nodes
         return self.forward(nodes)
 
@@ -187,9 +187,8 @@ class Encoder(nn.Module):
         """
         neigh_feats = self.aggregator.forward(nodes)  # A*X
         n = nodes.to(self.device).long()
-        self_feats = self.aggregator.features(
-            n
-        )  # NOTE: review this used to be self.features
+        # NOTE: review this used to be self.features
+        self_feats = self.aggregator.features(n)
         if self.combine == "concat":
             combined = torch.cat(
                 [self_feats, neigh_feats], dim=1

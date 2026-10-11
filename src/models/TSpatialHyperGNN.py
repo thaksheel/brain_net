@@ -3,6 +3,7 @@ import torch.nn as nn, torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.modules.module import Module
 from torch.nn.parameter import Parameter
+
 from .tspatialconv import TSpatialConvolution
 from .mlp import MLP
 

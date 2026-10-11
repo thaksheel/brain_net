@@ -37,19 +37,24 @@ from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
+from .utils import (
+    NeighborFinder,
+    NeuroGraphDataset,
+    initialize,
+    read_data,
+    add_self_loop,
+)
 from .models.tmphn_graph import TMPHN_Graph_Cls
 from .models.gnn import GIN
-from .utils.prepare import initialize, read_data, add_self_loop
-from .utils.Neighbors import NeighborFinder
-from .utils.datasets import NeuroGraphDataset
-from .config import (
+from .models.residual_gnn import ResidualGNNs 
+from .models import TMPHN_Graph_Cls, GIN, ResidualGNNs 
+from . import (
     Params,
     EvalResults,
     TTV,
     GridSearchParams,
     TimeTest,
 )
-from .models.residual_gnn import ResidualGNNs
 
 
 class GraphTrainer:
@@ -684,9 +689,9 @@ class GraphTrainer:
             prediction_test,
             Y[idx.val].cpu().numpy(),
             prediction_val,
-            train_logits=output_train.detach(), 
-            test_logits=output_test.detach(), 
-            val_logits=output_val.detach(), 
+            train_logits=output_train.detach(),
+            test_logits=output_test.detach(),
+            val_logits=output_val.detach(),
         )
         if self.display:
             print(

@@ -16,7 +16,7 @@ from scipy.linalg import eigh
 from torch_geometric.data import Data
 from numpy.typing import NDArray
 
-from .edge_construct import construct_adj, construct_corr
+from . import construct_adj, construct_corr
 
 
 @dataclass

@@ -4,7 +4,6 @@ import numpy as np
 from typing import List, Literal, Any, Dict, Tuple
 import torch
 from torch_geometric.data import Data, InMemoryDataset
-import itertools
 import random
 
 

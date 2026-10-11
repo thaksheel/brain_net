@@ -1,16 +1,13 @@
-####getting prepared for training
-from .TensorRep import HyperRepresentation
-from .Neighbors import NeighborFinder
 import torch
 import torch.optim as optim
 import torch.nn as nn, torch.nn.functional as F
 import numpy as np
-from ..models.TSpectralHyperGNN import TSpectralHyperGNN
-from ..models.TSpatialHyperGNN import TSpatialHyperGNN
-from ..models.TMPHN import TMPHN
 import pickle
 import os
 import random
+
+from . import NeighborFinder, HyperRepresentation
+from ..models import TSpectralHyperGNN, TSpatialHyperGNN, TMPHN
 
 
 def read_data(dataset_directory, data_type=None, dataset=None):

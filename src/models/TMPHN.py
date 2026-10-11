@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch
 import math
 
-from .tmessagepassing import TMessagePassing, Encoder
+from . import TMessagePassing, Encoder
 from ..config import Params
 
 

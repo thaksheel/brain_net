@@ -3,8 +3,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from src.train import GraphTrainer
-from src.config import Params, EvalResults
+from src import GraphTrainer, Params, EvalResults 
 
 
 def load_dataset(path: str):
@@ -18,15 +17,15 @@ def load_dataset(path: str):
 
 
 params = Params(
-    method="T-MPHN",
+    method="T-Spatial",
     dataset="HCPGender",
     num_classes=2,
     num_features=None,
     num_layers=2,
-    M=3,
-    Mlst=[3, 3],
+    M=2,
+    Mlst=[2, 2],
     hid_dim=128,
-    epochs=150,
+    epochs=200,
     lr=0.001,
     wd=0.001,
     dropout=0.65,
@@ -46,9 +45,10 @@ for d in datasets:
         X, H, y = load_dataset(path=folder_path + d)
         params.num_features = X.shape[1]
         params.seed = seed
-        gt = GraphTrainer(params=params, display=False)
+        gt = GraphTrainer(params=params, display=True)
         train_results = gt.train_node_cls(X, H, y)
-        best_results.append(gt.get_best_eval_results(train_results))
+        be = gt.get_best_eval_results(train_results)
+        best_results.append(be)
     df = gt.evaluation_results_to_df(best_results, outname=f"./exports/rslt_{d}.xlsx", export=True)
     print(df.head())
 print("END")

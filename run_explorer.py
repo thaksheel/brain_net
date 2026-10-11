@@ -52,7 +52,7 @@ for d in datasets:
         be = gt.get_best_eval_results(train_results)
         best_results.append(be) 
         print(be)
-        print(f"\n\tRuntime={(time.time() - start):.4f}s")
+        print(f"\n\tRuntime={(time.time() - start):.2f}s")
     # df = gt.evaluation_results_to_df(
     #     best_results, outname=f"./exports/rslt_{d}.xlsx", export=True
     # )

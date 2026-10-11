@@ -4,7 +4,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from src.train import GraphTrainer
-from src.config import Params
+from src.config import Params, EvalResults
 
 
 def load_dataset(path: str):
@@ -22,11 +22,11 @@ params = Params(
     dataset="HCPGender",
     num_classes=2,
     num_features=None,
-    num_layers=3,
+    num_layers=2,
     M=3,
-    Mlst=[3, 3, 2],
+    Mlst=[3, 3],
     hid_dim=128,
-    epochs=200,
+    epochs=150,
     lr=0.001,
     wd=0.001,
     dropout=0.65,
@@ -38,12 +38,17 @@ params = Params(
 )
 
 datasets = ["cora-cc", "cora-ca", "dblp-ca", "citeseer-cc"]
+seeds = [s for s in range(42, 42+15, 1)]
 for d in datasets:
-    folder_path = "./data/academic_net/"
-    X, H, y = load_dataset(path=folder_path + d)
-    params.num_features = X.shape[1]
-    gt = GraphTrainer(params=params, display=False)
-    train_results = gt.train_node_cls(X, H, y)
-    be = gt.get_best_eval_results(train_results)
-    print(be)
+    best_results: list[EvalResults] = []
+    for seed in seeds:
+        folder_path = "./data/academic_net/"
+        X, H, y = load_dataset(path=folder_path + d)
+        params.num_features = X.shape[1]
+        params.seed = seed
+        gt = GraphTrainer(params=params, display=False)
+        train_results = gt.train_node_cls(X, H, y)
+        best_results.append(gt.get_best_eval_results(train_results))
+    df = gt.evaluation_results_to_df(best_results, outname=f"./exports/rslt_{d}.xlsx", export=True)
+    print(df.head())
 print("END")

@@ -9,13 +9,14 @@ from graph_cls_utils import Config, is_classification, run_experiment
 from datasets import NeuroGraphDataset
 
 ROOT = "D:/datasets/hcp_data/"
+NAMES = ["HCPTask"]  # HCPFI / HCPWM have continuous targets and are skipped
 NAMES = ["HCPGender", "HCPAge", "HCPTask"]  # HCPFI / HCPWM have continuous targets and are skipped
 
 cfg = Config(
     Mlst=[3, 3],
-    hid_dim=64,
-    epochs=200,               # your script overrode epochs=100 with trainer.params.epochs = 50
-    lr=1e-5,                 # your value (very low for 50 epochs; 1e-3 is a more typical start)
+    hid_dim=128,
+    epochs=400,               # your script overrode epochs=100 with trainer.params.epochs = 50
+    lr=5e-4,                 # your value (very low for 50 epochs; 1e-3 is a more typical start)
     wd=5e-4,
     dropout=0.5,
     batch_size=64,

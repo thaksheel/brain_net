@@ -1,10 +1,8 @@
+import itertools, torch, time, random
 import pandas as pd
-import torch
 import torch.nn.functional as F
 import numpy as np
-import time
 from matplotlib import pyplot as plt
-import random
 from torch_geometric.nn import (
     APPNP,
     MLP,
@@ -31,7 +29,6 @@ from sklearn.metrics import (
 )
 from typing import Dict, List, Optional, Literal, Tuple
 import seaborn as sns
-import itertools
 from sklearn.model_selection import train_test_split
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.loader import DataLoader
@@ -44,13 +41,17 @@ from .utils import (
     read_data,
     add_self_loop,
 )
-from .models import TMPHN_Graph_Cls, GIN, ResidualGNNs
+from .models import GIN, ResidualGNNs
 from . import (
     Params,
     EvalResults,
     TTV,
     GridSearchParams,
-    TimeTest,
+    TMPHN,
+    knn_hyperedges,
+    hyperedges_from_adjacency,
+    build_hypergraph,
+    HyperGraphLoader,
 )
 
 
@@ -58,38 +59,17 @@ class GraphTrainer:
     def __init__(
         self,
         params: Params,
-        init_stopper: int = None,
-        init_limit_rois: int = None,
-        limit_X_features: int = None,
         display: bool = False,
         progress_bar: bool = False,
-        collect_time_test: bool = False,
     ):
         self.params = params
         self.display = display
         self.progress_bar = progress_bar
         self.device = torch.device(self.params.device)
-        self.init_stopper = init_stopper
-        self.init_limit_rois = init_limit_rois
-        self.limit_X_features = limit_X_features
 
         # Null
         self.data: Dict = None
-        self.collect_time_test = collect_time_test
         self.trained_model: torch.nn.Module = None
-        self.time_test: TimeTest = TimeTest(
-            init=[],
-            model_load=[],
-            batch_size=[],
-            input_size=[],
-            target_size=[],
-            forward=[],
-            criterion=[],
-            backward=[],
-            optimizer_step=[],
-            test_eval=[],
-            val_eval=[],
-        )
         self.durations: List[float] = [time.time()]
 
     def set_params(self, **params):
@@ -132,18 +112,67 @@ class GraphTrainer:
                 H = add_self_loop(H)
             X = torch.from_numpy(X).float().to(self.device)
             Y = torch.from_numpy(np.array(Y)).long().to(self.device)
-            if self.init_limit_rois:
-                X = X[: self.init_limit_rois, : self.limit_X_features]
-                H = H[: self.init_limit_rois, : self.init_limit_rois]
             neigh_dict = NeighborFinder(H, self.params.M).neig_for_targets(
                 list(range(X.shape[0]))
             )
             H = torch.from_numpy(H).long().to(self.device)
             dataset.append(Data(x=X, adj=H, neig_dict=neigh_dict, y=Y))
-            if self.init_stopper:
-                if len(dataset) > self.init_stopper:
-                    break
         return dataset
+
+    def graph_edges(self, edge_index: np.ndarray) -> List[np.ndarray]:
+        """Unique undirected edges {u, v} (u != v) as size-2 hyperedges."""
+        pairs = np.sort(edge_index.T, axis=1)
+        pairs = pairs[pairs[:, 0] != pairs[:, 1]]
+        return list(np.unique(pairs, axis=0))
+
+    def node_scores(self, x: np.ndarray, mode: str) -> np.ndarray:
+        if mode == "features" or (mode == "auto" and x.shape[0] == x.shape[1]):
+            return np.abs(x)  # node features are FC rows -> |FC|
+        return np.nan_to_num(np.abs(np.corrcoef(x)))
+
+    def to_hypergraphs(self, dataset: InMemoryDataset):
+        needs_scores = (
+            self.params.tmphn_config.hyperedges == "knn"
+            or self.params.tmphn_config.strategy != "random"
+        )
+        graphs, start = [], time.perf_counter()
+        for i, data in enumerate(dataset):
+            x = data.x.numpy()
+            n = x.shape[0]
+            ei = data.edge_index.numpy()
+            sim = self.node_scores(x, self.params.tmphn_config.scores) if needs_scores else None
+            if self.params.tmphn_config.hyperedges == "edges":
+                edges = self.graph_edges(ei)
+            elif self.params.tmphn_config.hyperedges == "neighborhood":
+                A = np.zeros((n, n), dtype=bool)
+                A[ei[0], ei[1]] = True
+                A[ei[1], ei[0]] = True
+                edges = hyperedges_from_adjacency(A)
+            elif self.params.tmphn_config.hyperedges == "knn":
+                edges = knn_hyperedges(sim, self.params.tmphn_config.knn_k)
+            else:
+                raise ValueError(
+                    f"unknown hyperedges mode '{self.params.tmphn_config.hyperedges}'"
+                )
+            graphs.append(
+                build_hypergraph(
+                    x,
+                    edges,
+                    self.params.Mlst,
+                    y=int(data.y.view(-1)[0]),
+                    self_loops=self.params.self_loop,
+                    strategy=self.params.tmphn_config.strategy,
+                    scores=sim,
+                    seed=self.params.seed + i,
+                )
+            )
+            if self.params.tmphn_config.log_every and (i + 1) % 500 == 0:
+                rate = (time.perf_counter() - start) / (i + 1)
+                print(
+                    f"  converted {i + 1}/{len(dataset)} subjects "
+                    f"(~{rate * (len(dataset) - i - 1):.0f}s left)"
+                )
+        return graphs
 
     def load_dataset(
         self,
@@ -191,21 +220,56 @@ class GraphTrainer:
         test_dataset = self.subset_dataset(dataset, test_indices)
         return TTV(train=train_dataset, test=test_dataset, val=val_dataset)
 
+    def to_hypergraph_ttv(self, dataset: InMemoryDataset) -> TTV:
+        """PyG graphs -> HyperGraph objects, one list per split. Run once per dataset."""
+        labels = [d.y.item() for d in dataset]
+        c = self.params.train_ratio + self.params.valid_ratio
+        train_tmp, test_indices = train_test_split(
+            list(range(len(labels))),
+            test_size=1 - c,
+            stratify=labels,
+            random_state=self.params.seed,
+            shuffle=True,
+        )
+        tmp = [dataset[i] for i in train_tmp]
+        train_labels = [d.y.item() for d in tmp]
+        train_indices, val_indices = train_test_split(
+            list(range(len(train_labels))),
+            test_size=self.params.valid_ratio,
+            stratify=train_labels,
+            random_state=self.params.seed,
+            shuffle=True,
+        )
+        # Convert back to InMemoryDataset
+        train_dataset = self.subset_dataset(
+            dataset, [train_tmp[i] for i in train_indices]
+        )
+        val_dataset = self.subset_dataset(dataset, [train_tmp[i] for i in val_indices])
+        test_dataset = self.subset_dataset(dataset, test_indices)
+        return TTV(
+            train=self.to_hypergraphs(train_dataset),
+            val=self.to_hypergraphs(val_dataset),
+            test=self.to_hypergraphs(test_dataset),
+        )
+
     def get_dataloader(self, ttv_dataset: TTV) -> TTV:
-        train_loader = DataLoader(
+        train_loader = HyperGraphLoader(
             ttv_dataset.train,
             self.params.batch_size,
             shuffle=False,
+            seed=self.params.seed,
         )
-        val_loader = DataLoader(
+        val_loader = HyperGraphLoader(
             ttv_dataset.val,
             self.params.batch_size,
             shuffle=False,
+            seed=self.params.seed,
         )
-        test_loader = DataLoader(
+        test_loader = HyperGraphLoader(
             ttv_dataset.test,
             self.params.batch_size,
             shuffle=False,
+            seed=self.params.seed,
         )
         return TTV(train=train_loader, val=val_loader, test=test_loader)
 
@@ -370,17 +434,24 @@ class GraphTrainer:
         dataset: InMemoryDataset,
     ) -> List[EvalResults]:
         """Generate dataloader, batches, optimizer, and criterion to feed into `train()` and `test()` to return `List[EvalResults]`"""
-        ttv_dataset = self.ttv_splits(dataset)
+        ttv_dataset = self.to_hypergraph_ttv(dataset)
         ttv_loader = self.get_dataloader(ttv_dataset)
-        if self.collect_time_test:
-            self.durations.append(time.time())
-            self.time_test.init.append(self.durations[-1] - self.durations[-2])
         if self.display:
             print("---> started T-HGNN training...")
-        model = TMPHN_Graph_Cls(self.params).to(self.device)
-        if self.collect_time_test:
-            self.durations.append(time.time())
-            self.time_test.model_load.append(self.durations[-1] - self.durations[-2])
+        model = TMPHN(
+            in_dim=self.params.num_features,
+            hid_dim=self.params.hid_dim,
+            num_classes=self.params.num_classes,
+            Mlst=self.params.Mlst,
+            combine=self.params.combine,
+            dropout=self.params.dropout,
+            norm=self.params.hyperG_norm,
+            task=self.params.task,
+            pool=self.params.tmphn_config.pool,
+            chunk_size=self.params.tmphn_config.chunk_size,
+            checkpoint=self.params.tmphn_config.checkpoint,
+            project_input=self.params.tmphn_config.project_input,
+        )
         eval_results = self.train_graph_cls(model, ttv_loader)
         return eval_results
 
@@ -464,6 +535,16 @@ class GraphTrainer:
                 )
         return evals
 
+    @torch.no_grad()
+    def predict(model, graphs, device, batch_size):
+        model.eval()
+        outs, ys = [], []
+        for b in HyperGraphLoader(graphs, batch_size, shuffle=False):
+            b = b.to(device, non_blocking=True)
+            outs.append(model(b.x, b.terms, b.batch, b.num_graphs).cpu())
+            ys.append(b.y.cpu())
+        return torch.cat(outs), torch.cat(ys)
+
     def optimize_graph_cls(
         self,
         loader: DataLoader,
@@ -479,30 +560,11 @@ class GraphTrainer:
         preds = []
         outs = []
         for batch in loader:
-            if self.collect_time_test:
-                self.durations.append(time.time())
-                self.time_test.batch_size.append(batch.size())
-                self.time_test.input_size.append(batch.x.shape)
-                self.time_test.target_size.append(batch.y.shape)
             out = model(batch)
-            if self.collect_time_test:
-                self.durations.append(time.time())
-                self.time_test.forward.append(self.durations[-1] - self.durations[-2])
             y = batch.y.view(-1).detach().clone().to(self.device)
             loss = criterion(out, y)
-            if self.collect_time_test:
-                self.durations.append(time.time())
-                self.time_test.criterion.append(self.durations[-1] - self.durations[-2])
             loss.backward()
-            if self.collect_time_test:
-                self.durations.append(time.time())
-                self.time_test.backward.append(self.durations[-1] - self.durations[-2])
             optimizer.step()
-            if self.collect_time_test:
-                self.durations.append(time.time())
-                self.time_test.optimizer_step.append(
-                    self.durations[-1] - self.durations[-2]
-                )
             preds.extend(out.argmax(dim=1))
             trues.extend(y)
             losses.append(loss.item())
@@ -528,26 +590,21 @@ class GraphTrainer:
         for epoch in tqdm(
             range(self.params.epochs),
             disable=not self.progress_bar,
-            desc=f"Graph Train seed:{self.params.seed}",
+            desc=f"graph_train_seed:{self.params.seed}",
         ):
-            # TODO: remove all time stamps later
-            start = time.time()
+            self._sync(self.params.device)
+            start = time.perf_counter()
             trt, trp, tr_loss, out_tr = self.optimize_graph_cls(
                 ttv_loader.train, model, optimizer, criterion
             )
-            duration = time.time() - start
+            self._sync(self.params.device)
+            duration = time.perf_counter() - start
             tet, tep, te_loss, out_te = self.model_evaluation(
                 model, ttv_loader.test, criterion
             )
-            if self.collect_time_test:
-                self.durations.append(time.time())
-                self.time_test.test_eval.append(self.durations[-1] - self.durations[-2])
             valt, valp, val_loss, out_val = self.model_evaluation(
                 model, ttv_loader.val, criterion
             )
-            if self.collect_time_test:
-                self.durations.append(time.time())
-                self.time_test.val_eval.append(self.durations[-1] - self.durations[-2])
             results.append(
                 self.get_eval_results(
                     epoch + 1,
@@ -648,6 +705,10 @@ class GraphTrainer:
             )
         return train_results
 
+    def _sync(self, device):
+        if str(device).startswith("cuda"):
+            torch.cuda.synchronize()  # so timings include the GPU work
+
     def node_cls_evaluation(
         self, model: torch.nn.Module, data: Dict, idx: TTV, **kwargs
     ):
@@ -708,16 +769,6 @@ class GraphTrainer:
         test_score = np.array([tr.accuracy.test for tr in train_results])
         best = np.argmax(test_score)
         return train_results[best]
-
-    def predict(self, train_results: List[EvalResults]):
-        tr = self.get_best_scores(train_results)
-        model = tr.model
-        # TODO: complete this to fit any data beyond the self.data idx
-        if self.params.method == "T-Spectral" or self.params.method == "T-Spatial":
-            A, X = self.data["hypergraph"], self.data["X"]
-            output = model(A, X)  # transductive
-        elif self.params.method == "T-MPHN":
-            output = model(None)  # inductive
 
     def quick_plot(self, epochs, data, **kwargs):
         plt.plot(epochs, data, marker="o", color="steelblue")

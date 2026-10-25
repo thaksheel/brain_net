@@ -1,7 +1,7 @@
 import argparse
 from dataclasses import dataclass, field
 import numpy as np
-from typing import List, Literal, Any, Dict, Tuple
+from typing import List, Literal, Any, Dict, Tuple, Optional
 import torch
 from torch_geometric.data import Data, InMemoryDataset
 import random
@@ -108,6 +108,21 @@ def parse():
 
 
 @dataclass
+class TMPHNConfig:
+    pool: Literal["mean", "max", "sum"] = "mean"
+    norm: str = "rms"  # "l2" = paper Eq. 26, "none" = original code
+    project_input: bool = True
+    hyperedges: Literal["edges", "neighborhood", "knn"] = "knn"
+    knn_k: int = 4
+    strategy: Literal["random", "topk", "weighted"] = "random"
+    scores: str = "auto"  # ranking for knn/topk/weighted: "auto" = |x| if x is square
+    chunk_size: Optional[int] = None  # see tmphn.layers.tensor_message
+    checkpoint: bool = False
+    keep_on_device: bool = False 
+    log_every: int = 10 
+
+
+@dataclass
 class Params:
     """
     Hyperparameter configuration for TensorHyperGNN models.
@@ -197,7 +212,9 @@ class Params:
 
     num_classes: int
     num_features: int
-    method: Literal["T-Spectral", "T-Spatial", "T-MPHN"]
+    method: Literal["T-Spectral", "T-Spatial", "T-MPHN"] 
+    tmphn_config: TMPHNConfig = TMPHNConfig()
+    task: Literal["node", "graph"] = "graph"
     hyperG_norm: bool = False
     data_type: str = "new"
     self_loop: bool = False
@@ -217,11 +234,11 @@ class Params:
     seed_weights: int = 41
     seed_splits: int = 43
     early_stopping: bool = True
-    combine: str = "concat"
+    combine: str = "concat" 
     M: int = 5
     Mlst: List[int] = field(default_factory=lambda: [3])
     dataset: str = None
-    batch_size: int = 16
+    batch_size: int = 16 
 
 
 @dataclass

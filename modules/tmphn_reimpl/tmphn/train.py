@@ -3,6 +3,7 @@ Minimal training / evaluation loops (replaces the T-MPHN parts of prepare.py).
 
 Run the synthetic demo (CPU or GPU):   python -m tmphn.train
 """
+
 from __future__ import annotations
 
 import copy
@@ -21,7 +22,9 @@ def default_device() -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def random_split(num_items: int, train: float = 0.5, valid: float = 0.25, seed: int = 0) -> Dict[str, torch.Tensor]:
+def random_split(
+    num_items: int, train: float = 0.5, valid: float = 0.25, seed: int = 0
+) -> Dict[str, torch.Tensor]:
     perm = torch.from_numpy(np.random.default_rng(seed).permutation(num_items))
     n_train, n_valid = int(train * num_items), int(valid * num_items)
     return {
@@ -35,13 +38,17 @@ def random_split(num_items: int, train: float = 0.5, valid: float = 0.25, seed: 
 # Node classification on one hypergraph (paper's setting)
 # =============================================================================
 @torch.no_grad()
-def evaluate_nodes(model: TMPHN, graph: HyperGraph, split: Dict[str, torch.Tensor]) -> Dict[str, float]:
+def evaluate_nodes(
+    model: TMPHN, graph: HyperGraph, split: Dict[str, torch.Tensor]
+) -> Dict[str, float]:
     model.eval()
     out = model(graph.x, graph.terms)  # one forward pass serves every split
     metrics = {}
     for name, idx in split.items():
         metrics[f"{name}_loss"] = F.nll_loss(out[idx], graph.y[idx]).item()
-        metrics[f"{name}_acc"] = (out[idx].argmax(-1) == graph.y[idx]).float().mean().item()
+        metrics[f"{name}_acc"] = (
+            (out[idx].argmax(-1) == graph.y[idx]).float().mean().item()
+        )
     return metrics
 
 
@@ -77,12 +84,18 @@ def train_node_classification(
 
         metrics = evaluate_nodes(model, graph, split)
         if metrics["valid_acc"] > best_acc:
-            best_acc, best_state, bad_epochs = metrics["valid_acc"], copy.deepcopy(model.state_dict()), 0
+            best_acc, best_state, bad_epochs = (
+                metrics["valid_acc"],
+                copy.deepcopy(model.state_dict()),
+                0,
+            )
         else:
             bad_epochs += 1
         if log_every and epoch % log_every == 0:
-            print(f"epoch {epoch:4d} | loss {loss.item():.4f} | "
-                  f"train {metrics['train_acc']:.3f} | valid {metrics['valid_acc']:.3f}")
+            print(
+                f"epoch {epoch:4d} | loss {loss.item():.4f} | "
+                f"train {metrics['train_acc']:.3f} | valid {metrics['valid_acc']:.3f}"
+            )
         if patience and bad_epochs >= patience:
             break
 
@@ -94,8 +107,12 @@ def train_node_classification(
 # Graph classification over many hypergraphs (e.g. one per subject)
 # =============================================================================
 @torch.no_grad()
-def evaluate_graphs(model: TMPHN, graphs: Sequence[HyperGraph], batch_size: int = 64,
-                    device: Optional[str] = None) -> Dict[str, float]:
+def evaluate_graphs(
+    model: TMPHN,
+    graphs: Sequence[HyperGraph],
+    batch_size: int = 64,
+    device: Optional[str] = None,
+) -> Dict[str, float]:
     device = device or default_device()
     model.eval()
     loss_sum, correct, total = 0.0, 0, 0
@@ -141,12 +158,18 @@ def train_graph_classification(
 
         valid = evaluate_graphs(model, valid_graphs, device=device)
         if valid["acc"] > best_acc:
-            best_acc, best_state, bad_epochs = valid["acc"], copy.deepcopy(model.state_dict()), 0
+            best_acc, best_state, bad_epochs = (
+                valid["acc"],
+                copy.deepcopy(model.state_dict()),
+                0,
+            )
         else:
             bad_epochs += 1
         if log_every and epoch % log_every == 0:
-            print(f"epoch {epoch:4d} | train loss {epoch_loss / len(train_graphs):.4f} | "
-                  f"valid acc {valid['acc']:.3f}")
+            print(
+                f"epoch {epoch:4d} | train loss {epoch_loss / len(train_graphs):.4f} | "
+                f"valid acc {valid['acc']:.3f}"
+            )
         if patience and bad_epochs >= patience:
             break
 
@@ -166,11 +189,18 @@ def _demo() -> None:
     N, F_in = 300, 16
     x = rng.normal(size=(N, F_in)).astype(np.float32)
     y = (x[:, 0] > 0).astype(np.int64)
-    edges = [rng.choice(N, size=int(rng.integers(2, 9)), replace=False) for _ in range(400)]
+    edges = [
+        rng.choice(N, size=int(rng.integers(2, 9)), replace=False) for _ in range(400)
+    ]
     graph = build_hypergraph(x, edges, Mlst=[4, 3], y=y, self_loops=True, seed=0)
     print(graph)
     model = TMPHN(F_in, 64, 2, Mlst=[4, 3], dropout=0.1)
-    print("node task:", train_node_classification(model, graph, random_split(N), epochs=60, log_every=20))
+    print(
+        "node task:",
+        train_node_classification(
+            model, graph, random_split(N), epochs=60, log_every=20
+        ),
+    )
 
     # --- graph classification: many small hypergraphs, kNN hyperedges, top-k down-sampling ---
     graphs = []
@@ -180,10 +210,23 @@ def _demo() -> None:
         label = i % 2
         xi[:, 0] += 1.0 if label else -1.0  # a learnable signal
         sim = xi @ xi.T
-        graphs.append(build_hypergraph(xi, knn_hyperedges(sim, k=4), Mlst=[5, 3], y=label,
-                                       strategy="topk", scores=sim))
+        graphs.append(
+            build_hypergraph(
+                xi,
+                knn_hyperedges(sim, k=4),
+                Mlst=[5, 3],
+                y=label,
+                strategy="topk",
+                scores=sim,
+            )
+        )
     model = TMPHN(F_in, 64, 2, Mlst=[5, 3], task="graph", dropout=0.1)
-    print("graph task:", train_graph_classification(model, graphs[:60], graphs[60:], epochs=30, log_every=10))
+    print(
+        "graph task:",
+        train_graph_classification(
+            model, graphs[:60], graphs[60:], epochs=30, log_every=10
+        ),
+    )
 
 
 if __name__ == "__main__":

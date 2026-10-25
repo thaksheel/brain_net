@@ -1,12 +1,3 @@
-"""
-Shared helpers for graph-classification experiments with T-MPHN
-(used by run_adhd.py and run_neurograph.py).
-
-    is_classification(dataset)               False for regression targets (e.g. HCPFI, HCPWM)
-    run_experiment(dataset, name, cfg, out)  convert -> split -> train once -> one row of metrics
-                                             and runtime per epoch (DataFrame, Excel, PNG)
-"""
-
 import time
 from dataclasses import dataclass, field
 from pathlib import Path

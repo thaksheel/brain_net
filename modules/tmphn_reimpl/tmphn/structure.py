@@ -15,6 +15,7 @@ by the adjacency value of its hyperedge divided by the target's degree.
 Compiling every node's neighborhood into flat arrays ONCE lets the model run each
 layer as a single gather / multiply / scatter-add on the GPU (see layers.py).
 """
+
 from __future__ import annotations
 
 from collections import Counter
@@ -27,7 +28,9 @@ from typing import List, Optional, Sequence
 import numpy as np
 
 Hyperedges = List[np.ndarray]  # each entry: the node ids of one hyperedge
-_MAX_CHUNK_ELEMENTS = 4_000_000  # temporary array size when down-sampling large hyperedges
+_MAX_CHUNK_ELEMENTS = (
+    4_000_000  # temporary array size when down-sampling large hyperedges
+)
 
 
 # =============================================================================
@@ -63,7 +66,9 @@ def knn_hyperedges(similarity, k: int) -> Hyperedges:
     S = np.array(similarity, dtype=np.float64)  # copy
     np.fill_diagonal(S, -np.inf)
     nearest = np.argsort(-S, axis=1)[:, :k]
-    return [np.concatenate(([i], nearest[i])).astype(np.int64) for i in range(S.shape[0])]
+    return [
+        np.concatenate(([i], nearest[i])).astype(np.int64) for i in range(S.shape[0])
+    ]
 
 
 def add_self_loops(hyperedges: Sequence, num_nodes: int) -> Hyperedges:
@@ -173,8 +178,8 @@ def choose_members(
 @dataclass(repr=False)
 class CompiledTerms:
     target: np.ndarray  # (T,)      int64: node that receives the term
-    idx: np.ndarray     # (T, M-1)  int64: nodes whose vectors are multiplied
-    coef: np.ndarray    # (T,)      float32: a_e * #orderings / degree(target)
+    idx: np.ndarray  # (T, M-1)  int64: nodes whose vectors are multiplied
+    coef: np.ndarray  # (T,)      float32: a_e * #orderings / degree(target)
     num_nodes: int
     M: int
 
@@ -237,13 +242,21 @@ def compile_terms(
         else:
             # every (edge, member) pair at once: row p of `others` = the members other than p
             not_self = ~np.eye(c, dtype=bool)
-            rows_per_chunk = max(1, _MAX_CHUNK_ELEMENTS // (c * c))  # caps temporary memory
+            rows_per_chunk = max(
+                1, _MAX_CHUNK_ELEMENTS // (c * c)
+            )  # caps temporary memory
             for start in range(0, len(E), rows_per_chunk):
                 Ec = E[start : start + rows_per_chunk]
                 n = Ec.shape[0]
-                tgt = Ec.reshape(-1)                                                   # (n*c,)
-                others = np.broadcast_to(Ec[:, None, :], (n, c, c))[:, not_self].reshape(n * c, c - 1)
-                idxs.append(choose_members(others, tgt, M - 1, strategy, scores, temperature, rng))
+                tgt = Ec.reshape(-1)  # (n*c,)
+                others = np.broadcast_to(Ec[:, None, :], (n, c, c))[
+                    :, not_self
+                ].reshape(n * c, c - 1)
+                idxs.append(
+                    choose_members(
+                        others, tgt, M - 1, strategy, scores, temperature, rng
+                    )
+                )
                 targets.append(tgt)
                 coefs.append(1.0 / degree[tgt])
 

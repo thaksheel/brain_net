@@ -2,7 +2,7 @@
 T-MPHN building blocks.
 
 Replaces: TMessagePassing.forward / aggregate_for_one_node  ->  tensor_message
-          Encoder                                           ->  TMPHNLayer
+            Encoder                                           ->  TMPHNLayer
 
 Every node is processed at once with three GPU-friendly ops per layer:
 gather (h[idx]), elementwise multiply (Hadamard product), scatter-add (index_add).
@@ -37,7 +37,7 @@ def tensor_message(
 
     chunk_size : process terms in chunks to cap peak memory (None = all at once)
     checkpoint : recompute chunk products during backward instead of storing them
-                 (much lower memory on large graphs, ~1 extra forward of compute)
+                (much lower memory on large graphs, ~1 extra forward of compute)
     """
     if h.shape[0] != terms.num_nodes:
         raise ValueError(f"h has {h.shape[0]} rows but terms were compiled for {terms.num_nodes} nodes")
@@ -58,9 +58,9 @@ def normalize(h: torch.Tensor, mode: str = "rms", eps: float = 1e-6) -> torch.Te
     """Per-node scale control before the next layer multiplies vectors together.
 
     "rms"  : unit root-mean-square, so entries are O(1) and products of M-1 entries
-             neither vanish nor explode (default)
+            neither vanish nor explode (default)
     "l2"   : unit L2 norm, exactly the paper's Eq. 26 (entries ~ 1/sqrt(D), so the
-             products shrink like D^{-(M-1)/2})
+            products shrink like D^{-(M-1)/2})
     "none" : no normalization
     """
     if mode == "rms":

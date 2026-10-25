@@ -43,9 +43,9 @@ for name in names:
         lr=[5e-4, 5e-3, 5e-2, 5e-1, 1e-3, 1e-2],
         wd=[5e-4, 5e-3, 5e-2, 5e-1, 1e-3, 1e-2],
         num_layers=[3],
-        batch_size=[17, 32, 64, 128],
+        batch_size=[16, 32, 64],
         dropout=[0.5, 0.65, 0.75],
-        hid_dim=[32, 64, 128, 256],
+        hid_dim=[32, 64, 128],
     )
 
     # # NOTE: params tuning

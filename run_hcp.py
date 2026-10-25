@@ -6,7 +6,7 @@ from src import Params, GraphTrainer, TMPHNConfig, NeuroGraphDataset
 
 ROOT = "D:/datasets/hcp_data/"
 names = ["HCPGender", "HCPAge", "HCPTask"]
-names = ["HCPGender"]
+names = ["HCPTask"]
 
 for name in names:
     dataset = NeuroGraphDataset(root=ROOT, name=name)
@@ -40,7 +40,7 @@ for name in names:
         ),
     )
 
-    trainer = GraphTrainer(params=params, display=True, progress_bar=True)
+    trainer = GraphTrainer(params=params, display=False, progress_bar=True)
     eval_results = trainer.evaluate_graph_cls(dataset)
     best_results = trainer.get_best_eval_results(eval_results)
     df_results = trainer.evaluation_results_to_df(

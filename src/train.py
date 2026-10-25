@@ -53,6 +53,7 @@ from . import (
     build_hypergraph,
     HyperGraphLoader,
 )
+from .tmphn.tspectral import build_spectral_graph, TSpectralHGNN, SpectralGraphLoader, SpectralGraph
 
 
 class GraphTrainer:
@@ -256,26 +257,19 @@ class GraphTrainer:
             test=self.to_hypergraphs(test_dataset),
         )
 
+
     def get_dataloader(self, ttv_dataset: TTV) -> TTV:
-        train_loader = HyperGraphLoader(
-            ttv_dataset.train,
-            self.params.batch_size,
-            shuffle=False,
-            seed=self.params.seed,
+        """REPLACES your get_dataloader: picks the loader that matches the converted graphs."""
+        first = ttv_dataset.train[0]
+        Loader = (
+            SpectralGraphLoader if isinstance(first, SpectralGraph) else HyperGraphLoader
         )
-        val_loader = HyperGraphLoader(
-            ttv_dataset.val,
-            self.params.batch_size,
-            shuffle=False,
-            seed=self.params.seed,
+        bs, seed = self.params.batch_size, self.params.seed
+        return TTV(
+            train=Loader(ttv_dataset.train, bs, shuffle=True, seed=seed),
+            val=Loader(ttv_dataset.val, bs, shuffle=False),
+            test=Loader(ttv_dataset.test, bs, shuffle=False),
         )
-        test_loader = HyperGraphLoader(
-            ttv_dataset.test,
-            self.params.batch_size,
-            shuffle=False,
-            seed=self.params.seed,
-        )
-        return TTV(train=train_loader, val=val_loader, test=test_loader)
 
     def compute_alt_metrics(self, y_true: np.ndarray, y_pred: np.ndarray):
         tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
@@ -554,32 +548,32 @@ class GraphTrainer:
         loader: HyperGraphLoader,
         model: torch.nn.Module,
         optimizer: torch.optim.AdamW,
-        criterion: torch.nn.CrossEntropyLoss,
     ):
-        """Performs gradient descent per epoch/batch and returns [predictates, loss]"""
+        """One training pass. Returns (trues, preds, mean_loss, logits)."""
+        model.train()  # re-enable dropout every epoch
         out: torch.Tensor
-        loss: torch.Tensor
-        losses = []
-        trues = []
-        preds = []
-        outs = []
-        for batch in loader:
-            batch = batch.to(self.params.device, non_blocking=True)
+        losses, trues, preds, outs = [], [], [], []
+        for i, batch in enumerate(loader):
+            # forward
+            batch = batch.to(self.device)
             optimizer.zero_grad()
             out = model(batch)
-            y = batch.y.view(-1).detach().clone().to(self.device)
-            loss = criterion(out.to(self.device), y)
+            loss = F.nll_loss(out, batch.y)
+            if not torch.isfinite(loss):
+                print(f"[warn] non-finite loss at batch {i}, skipping step")
+                continue
+
+            # backward
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
-            preds.extend(out.argmax(dim=1))
-            trues.extend(y)
+            # bookkeeping
             losses.append(loss.item())
-            outs.extend(out)
-        trues = [t.item() for t in trues]
-        preds = [t.item() for t in preds]
-        outs = torch.stack([i.detach() for i in outs])
-        return trues, preds, np.mean(losses), outs
+            trues.extend(batch.y.tolist())
+            preds.extend(out.argmax(dim=1).tolist())
+            outs.append(out.detach())
+        return trues, preds, float(np.mean(losses)), torch.cat(outs)
 
     def train_graph_cls(
         self,
@@ -587,12 +581,10 @@ class GraphTrainer:
         ttv_loader: TTV,
     ):
         """Train GNN from loader/batches to return predictates and embeddings"""
-        model.train()
         optimizer = torch.optim.AdamW(
             model.parameters(), lr=self.params.lr, weight_decay=self.params.wd
         )
-        criterion = torch.nn.CrossEntropyLoss()
-        results: List[EvalResults] = []
+        results = []
         for epoch in tqdm(
             range(self.params.epochs),
             disable=not self.progress_bar,
@@ -601,16 +593,12 @@ class GraphTrainer:
             self._sync(self.params.device)
             start = time.perf_counter()
             trt, trp, tr_loss, out_tr = self.optimize_graph_cls(
-                ttv_loader.train, model, optimizer, criterion
+                ttv_loader.train, model, optimizer
             )
             self._sync(self.params.device)
             duration = time.perf_counter() - start
-            tet, tep, te_loss, out_te = self.model_evaluation(
-                model, ttv_loader.test, criterion
-            )
-            valt, valp, val_loss, out_val = self.model_evaluation(
-                model, ttv_loader.val, criterion
-            )
+            tet, tep, te_loss, out_te = self.model_evaluation(model, ttv_loader.test)
+            valt, valp, val_loss, out_val = self.model_evaluation(model, ttv_loader.val)
             results.append(
                 self.get_eval_results(
                     epoch + 1,
@@ -643,32 +631,99 @@ class GraphTrainer:
         self.trained_model = model
         return results
 
-    def model_evaluation(
-        self,
-        model: torch.nn.Module,
-        test_loader: HyperGraphLoader,
-        criterion: torch.nn.CrossEntropyLoss,
-    ):
-        """Test GNN from checkpoint to return predictates and embeddings"""
+    @torch.no_grad()
+    def model_evaluation(self, model: torch.nn.Module, loader: HyperGraphLoader):
+        """Evaluation pass. Returns (trues, preds, mean_loss, logits)."""
         model.eval()
-        losses = []
-        trues = []
-        preds = []
-        outs = []
-        with torch.no_grad():
-            for batch in test_loader: 
-                batch = batch.to(self.params.device, non_blocking=True)
-                out = model(batch)
-                y = batch.y.view(-1).detach().clone().to(self.device)
-                pred = out.argmax(dim=1)
-                preds.extend(pred)
-                trues.extend(y)
-                losses.append(criterion(out, y).item())
-                outs.extend(out)
-        trues = [t.item() for t in trues]
-        preds = [t.item() for t in preds]
-        outs = torch.stack([i.detach() for i in outs])
-        return trues, preds, np.mean(losses), outs
+        loss_sum, n = 0.0, 0
+        trues, preds, outs = [], [], []
+        for batch in loader:
+            batch = batch.to(self.device)
+            out = model(batch)
+            loss_sum += F.nll_loss(out, batch.y, reduction="sum").item()
+            n += batch.num_graphs
+            trues.extend(batch.y.tolist())
+            preds.extend(out.argmax(dim=1).tolist())
+            outs.append(out)
+        return trues, preds, loss_sum / n, torch.cat(outs)
+
+    def _hyperedges_for(self, data):
+        """PyG Data -> (x, hyperedges, scores) using tmphn_config, exactly as to_hypergraphs does."""
+        cfg = self.params.tmphn_config
+        x = data.x.numpy()
+        n = x.shape[0]
+        ei = data.edge_index.numpy()
+        needs_scores = cfg.hyperedges == "knn" or cfg.strategy != "random"
+        sim = self.node_scores(x, cfg.scores) if needs_scores else None
+        if cfg.hyperedges == "edges":
+            edges = self.graph_edges(ei)
+        elif cfg.hyperedges == "neighborhood":
+            A = np.zeros((n, n), dtype=bool)
+            A[ei[0], ei[1]] = True
+            A[ei[1], ei[0]] = True
+            edges = hyperedges_from_adjacency(A)
+        elif cfg.hyperedges == "knn":
+            edges = knn_hyperedges(sim, cfg.knn_k)
+        else:
+            raise ValueError(f"unknown hyperedges mode '{cfg.hyperedges}'")
+        return x, edges, sim
+
+    def to_spectral_graphs(self, dataset):
+        cfg = self.params.tmphn_config
+        graphs = []
+        for i, data in enumerate(dataset):
+            x, edges, sim = self._hyperedges_for(data)
+            graphs.append(
+                build_spectral_graph(
+                    x,
+                    edges,
+                    y=int(data.y.view(-1)[0]),
+                    self_loops=self.params.self_loop,
+                    strategy=cfg.strategy,
+                    scores=sim,
+                    seed=self.params.seed + i,
+                )
+            )
+        return graphs
+
+    def to_spectral_ttv(self, dataset) -> "TTV":
+        """Same stratified split as ttv_splits, then convert each split once."""
+        ttv = self.ttv_splits(dataset)
+        return TTV(
+            train=self.to_spectral_graphs(ttv.train),
+            val=self.to_spectral_graphs(ttv.val),
+            test=self.to_spectral_graphs(ttv.test),
+        )
+
+    def build_tspectral(self, max_nodes: int, task: str) -> torch.nn.Module:
+        cfg = self.params.tmphn_config
+        return TSpectralHGNN(
+            in_dim=self.params.num_features,
+            hid_dim=self.params.hid_dim,
+            num_classes=self.params.num_classes,
+            num_layers=self.params.num_layers,
+            max_nodes=max_nodes,
+            combine=self.params.combine,
+            dropout=self.params.dropout,
+            norm=cfg.norm,
+            readout=getattr(cfg, "readout", "learned"),
+            task=task,
+            pool=cfg.pool,
+            project_input=cfg.project_input,
+        ).to(self.device)
+
+    def evaluate_graph_cls_spectral(self, dataset):
+        """T-spectral counterpart of evaluate_graph_cls (TMPHN); returns List[EvalResults]."""
+        ttv_dataset = self.to_spectral_ttv(dataset)
+        ttv_loader = self.get_dataloader(ttv_dataset)
+        max_nodes = max(
+            g.num_nodes
+            for split in (ttv_dataset.train, ttv_dataset.val, ttv_dataset.test)
+            for g in split
+        )
+        torch.manual_seed(self.params.seed)
+        model = self.build_tspectral(max_nodes, task="graph")
+        return self.train_graph_cls(model, ttv_loader)
 
     def train_node_cls(
         self,

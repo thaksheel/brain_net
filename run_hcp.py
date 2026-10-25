@@ -6,18 +6,18 @@ from src import Params, GraphTrainer, TMPHNConfig, NeuroGraphDataset
 
 ROOT = "D:/datasets/hcp_data/"
 names = ["HCPGender", "HCPAge", "HCPTask"]
-names = ["HCPTask"]
+names = ["HCPGender"]
 
 for name in names:
     dataset = NeuroGraphDataset(root=ROOT, name=name)
     params = Params(
         method="T-MPHN",
         dataset=name,
-        num_features=dataset.num_features, 
+        num_features=dataset.num_features,
         num_classes=dataset.num_classes,
         M=3,
         Mlst=[3, 3],
-        num_layers=2, 
+        num_layers=2,
         hid_dim=128,
         epochs=100,
         lr=5e-4,
@@ -26,7 +26,7 @@ for name in names:
         train_ratio=0.7,
         valid_ratio=0.1,
         seed=42,
-        device="cpu",
+        device="cuda",
         batch_size=64,
         tmphn_config=TMPHNConfig(
             pool="mean",

@@ -140,7 +140,11 @@ class GraphTrainer:
             x = data.x.numpy()
             n = x.shape[0]
             ei = data.edge_index.numpy()
-            sim = self.node_scores(x, self.params.tmphn_config.scores) if needs_scores else None
+            sim = (
+                self.node_scores(x, self.params.tmphn_config.scores)
+                if needs_scores
+                else None
+            )
             if self.params.tmphn_config.hyperedges == "edges":
                 edges = self.graph_edges(ei)
             elif self.params.tmphn_config.hyperedges == "neighborhood":
@@ -445,13 +449,13 @@ class GraphTrainer:
             Mlst=self.params.Mlst,
             combine=self.params.combine,
             dropout=self.params.dropout,
-            norm=self.params.hyperG_norm,
+            norm=self.params.tmphn_config.norm,
             task=self.params.task,
             pool=self.params.tmphn_config.pool,
             chunk_size=self.params.tmphn_config.chunk_size,
             checkpoint=self.params.tmphn_config.checkpoint,
             project_input=self.params.tmphn_config.project_input,
-        )
+        ).to(self.device)
         eval_results = self.train_graph_cls(model, ttv_loader)
         return eval_results
 
@@ -547,7 +551,7 @@ class GraphTrainer:
 
     def optimize_graph_cls(
         self,
-        loader: DataLoader,
+        loader: HyperGraphLoader,
         model: torch.nn.Module,
         optimizer: torch.optim.AdamW,
         criterion: torch.nn.CrossEntropyLoss,
@@ -560,16 +564,18 @@ class GraphTrainer:
         preds = []
         outs = []
         for batch in loader:
+            batch = batch.to(self.params.device, non_blocking=True)
+            optimizer.zero_grad()
             out = model(batch)
             y = batch.y.view(-1).detach().clone().to(self.device)
-            loss = criterion(out, y)
+            loss = criterion(out.to(self.device), y)
             loss.backward()
             optimizer.step()
+
             preds.extend(out.argmax(dim=1))
             trues.extend(y)
             losses.append(loss.item())
             outs.extend(out)
-            optimizer.zero_grad()
         trues = [t.item() for t in trues]
         preds = [t.item() for t in preds]
         outs = torch.stack([i.detach() for i in outs])
@@ -634,16 +640,13 @@ class GraphTrainer:
                     f"test_f1={results[-1].f1.test} "
                     f"duration={duration:.2f}s "
                 )
-                for name, p in model.named_parameters():
-                    if p.grad is not None:
-                        print(f"{name} grad norm: {p.grad.norm().item():.4f}")
         self.trained_model = model
         return results
 
     def model_evaluation(
         self,
         model: torch.nn.Module,
-        test_loader: DataLoader,
+        test_loader: HyperGraphLoader,
         criterion: torch.nn.CrossEntropyLoss,
     ):
         """Test GNN from checkpoint to return predictates and embeddings"""
@@ -653,7 +656,8 @@ class GraphTrainer:
         preds = []
         outs = []
         with torch.no_grad():
-            for batch in test_loader:
+            for batch in test_loader: 
+                batch = batch.to(self.params.device, non_blocking=True)
                 out = model(batch)
                 y = batch.y.view(-1).detach().clone().to(self.device)
                 pred = out.argmax(dim=1)

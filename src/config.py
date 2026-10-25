@@ -213,7 +213,7 @@ class Params:
     num_classes: int
     num_features: int
     method: Literal["T-Spectral", "T-Spatial", "T-MPHN"] 
-    tmphn_config: TMPHNConfig = TMPHNConfig()
+    tmphn_config: TMPHNConfig
     task: Literal["node", "graph"] = "graph"
     hyperG_norm: bool = False
     data_type: str = "new"

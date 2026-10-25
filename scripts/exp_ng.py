@@ -30,22 +30,22 @@ for name in names:
         device="cpu",
         batch_size=64,
     )
-    # gsp = GridSearchParams(
-    #     lr=[5e-3, 5e-2, 5e-1, 1e-3, 1e-2, 1e-1],
-    #     wd=[5e-3, 5e-2, 5e-1, 1e-3, 1e-2, 1e-1],
-    #     num_layers=[2],
-    #     batch_size=[17, 32, 64, 128],
-    #     dropout=[0.25, 0.5, 0.75, 0.8],
-    #     hid_dim=[16, 32, 64, 128],
-    # )
+    gsp = GridSearchParams(
+        lr=[5e-3, 5e-2, 5e-1, 1e-3, 1e-2, 1e-1],
+        wd=[5e-3, 5e-2, 5e-1, 1e-3, 1e-2, 1e-1],
+        num_layers=[2],
+        batch_size=[17, 32, 64, 128],
+        dropout=[0.25, 0.5, 0.75, 0.8],
+        hid_dim=[16, 32, 64, 128],
+    )
 
     # # NOTE: params tuning
-    # trainer.params.epochs = 15
-    # best_params, best_score = trainer.grid_search(
-    #     dataset, gsp, graph_type="ng", maxiter=50, model_name="GATConv"
-    # )
-    # updated_params = trainer.set_params(**best_params)
-    # print(f"grid_search results: {updated_params}")
+    trainer.params.epochs = 15
+    best_params, best_score = trainer.grid_search(
+        dataset, gsp, graph_type="ng", maxiter=50, model_name="GATConv"
+    )
+    updated_params = trainer.set_params(**best_params)
+    print(f"grid_search results: {updated_params}")
 
     # NOTE: CV evaluations
     trainer = GraphTrainer(params, display=False, progress_bar=True)

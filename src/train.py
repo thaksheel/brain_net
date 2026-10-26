@@ -54,6 +54,7 @@ from . import (
     HyperGraphLoader,
 )
 from .tmphn.tspectral import build_spectral_graph, TSpectralHGNN, SpectralGraphLoader, SpectralGraph
+from .tmphn.tspatial import TSpatialHGNN
 
 
 class GraphTrainer:
@@ -712,6 +713,23 @@ class GraphTrainer:
             project_input=cfg.project_input,
         ).to(self.device)
 
+    def build_tspatial(self, task: str) -> torch.nn.Module:
+        cfg = self.params.tmphn_config
+        return TSpatialHGNN(
+            in_dim=self.params.num_features,
+            hid_dim=self.params.hid_dim,
+            num_classes=self.params.num_classes,
+            num_layers=self.params.num_layers,
+            combine=getattr(
+                cfg, "spatial_combine", "sum"
+            ),  # "sum" (paper, with self-loops) | "concat" | "none"
+            dropout=self.params.dropout,
+            norm=cfg.norm,
+            task=task,
+            pool=cfg.pool,
+            project_input=cfg.project_input,
+        ).to(self.device)
+
     def evaluate_graph_cls_spectral(self, dataset):
         """T-spectral counterpart of evaluate_graph_cls (TMPHN); returns List[EvalResults]."""
         ttv_dataset = self.to_spectral_ttv(dataset)
@@ -723,6 +741,14 @@ class GraphTrainer:
         )
         torch.manual_seed(self.params.seed)
         model = self.build_tspectral(max_nodes, task="graph")
+        return self.train_graph_cls(model, ttv_loader) 
+
+    def evaluate_graph_cls_spatial(self, dataset):
+        """T-spatial counterpart of evaluate_graph_cls (TMPHN); returns List[EvalResults]."""
+        ttv_dataset = self.to_spectral_ttv(dataset)  # same data format as T-spectral
+        ttv_loader = self.get_dataloader(ttv_dataset)
+        torch.manual_seed(self.params.seed)
+        model = self.build_tspatial(task="graph")
         return self.train_graph_cls(model, ttv_loader)
 
     def train_node_cls(

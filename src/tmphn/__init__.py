@@ -37,7 +37,8 @@ from .tspectral import (
     collate_spectral,
     TSpectralHGNN, 
     TSpectralLayer
-)
+) 
+from .tspatial import TSpatialHGNN, TSpatialLayer 
 
 __all__ = [
     # from .structure

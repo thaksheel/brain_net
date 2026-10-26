@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from src import Params, GraphTrainer, TMPHNConfig, NeuroGraphDataset, GridSearchParams
 
 ROOT = "D:/datasets/hcp_data/"
+ROOT = "./data/"
 names = ["HCPGender"]
 names = ["HCPGender", "HCPAge", "HCPTask"]
 
@@ -49,18 +50,20 @@ for name in names:
     )
 
     # # NOTE: params tuning
-    trainer.params.epochs = 75
+    trainer = GraphTrainer(params, display=False, progress_bar=True)
+    trainer.params.epochs = 50
+    print(f"--------> Running GridSearch on --{name}")
     best_params, best_score = trainer.grid_search(
         dataset,
         gsp,
         graph_type="tensor",
-        maxiter=100,
+        maxiter=50,
     )
     updated_params = trainer.set_params(**best_params)
     print(f"grid_search results: {updated_params}")
 
     # NOTE: CV evaluations
-    trainer = GraphTrainer(params, display=False, progress_bar=True)
+    print(f"--------> Evaluating on --{name}")
     trainer.params.epochs = 250
     seeds = [i for i in range(42, 42 + 30, 1)]
     evals = trainer.run_stratified_n_iteractions(

@@ -52,6 +52,7 @@ from . import (
     hyperedges_from_adjacency,
     build_hypergraph,
     HyperGraphLoader,
+    HyperGraph,
 )
 from .tmphn.tspectral import build_spectral_graph, TSpectralHGNN, SpectralGraphLoader, SpectralGraph
 from .tmphn.tspatial import TSpatialHGNN
@@ -132,12 +133,13 @@ class GraphTrainer:
             return np.abs(x)  # node features are FC rows -> |FC|
         return np.nan_to_num(np.abs(np.corrcoef(x)))
 
-    def to_hypergraphs(self, dataset: InMemoryDataset):
+    def to_hypergraphs(self, dataset: InMemoryDataset) -> List[HyperGraph]:
         needs_scores = (
             self.params.tmphn_config.hyperedges == "knn"
             or self.params.tmphn_config.strategy != "random"
         )
-        graphs, start = [], time.perf_counter()
+        graphs: List[HyperGraph] = []
+        start = time.perf_counter()
         for i, data in enumerate(dataset):
             x = data.x.numpy()
             n = x.shape[0]

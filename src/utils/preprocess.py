@@ -104,10 +104,11 @@ class Preprocess:
     ) -> Tuple[Node, Edge, NDArray, List]:
         df_targets = pd.read_csv(folder_path + "targets.csv")
         patient_ids = df_targets.IID.astype(str).str.zfill(7).tolist()
-        errors = []
+        errors, kept_labels = [], []
+        labels = df_targets.Diagnosis.astype(int).tolist()
         edges: List[Edge] = []
         nodes: List[Node] = []
-        for pid in patient_ids:
+        for pid, label in zip(patient_ids, labels):
             df = pd.read_csv(
                 folder_path
                 + f"{atlas}/dataset-ADHDfMRIPrep_sub-{pid}_task-rest_desc-fMRIROItimeseries_atlas-{atlas}_preproc-fMRIPrep.csv"
@@ -115,25 +116,13 @@ class Preprocess:
             N = df.to_numpy()
             if (N == 0).sum() > 0:
                 errors.append((atlas, pid))
-            else:
-                corr = construct_corr(N)
-                A = construct_adj(corr, threshold=5)
-                nodes.append(
-                    Node(
-                        patient_id=pid,
-                        v=None,
-                        data=N,
-                    )
-                )
-                edges.append(
-                    Edge(
-                        patient_id=pid,
-                        data=corr,
-                        A=A,
-                        v=None,
-                    )
-                )
-        return nodes, edges, df_targets.Diagnosis.to_numpy().astype(int), errors
+                continue
+            corr = construct_corr(N)
+            A = construct_adj(corr, threshold=5)
+            nodes.append(Node(patient_id=pid, v=None, data=N))
+            edges.append(Edge(patient_id=pid, data=corr, A=A, v=None))
+            kept_labels.append(label)
+        return nodes, edges, np.array(kept_labels), errors
 
     def get_graph_dataset(
         self, nodes: List[Node], edges: List[Edge], y: List[float]

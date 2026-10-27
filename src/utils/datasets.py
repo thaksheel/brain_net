@@ -9,10 +9,18 @@ from torch_geometric.data import Data, InMemoryDataset, download_url, extract_zi
 
 
 class GraphDataset(InMemoryDataset):
-    def __init__(self, root, data_list=None, name= None, transform=None, pre_transform=None):
+    def __init__(
+        self,
+        root,
+        data_list=None,
+        name=None,
+        transform=None,
+        pre_transform=None,
+        force_reload: bool = False,
+    ):
         self.data_list = data_list
-        self.name = name 
-        super().__init__(root, transform, pre_transform)
+        self.name = name
+        super().__init__(root, transform, pre_transform, force_reload=force_reload)
         self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
 
     @property

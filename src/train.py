@@ -948,7 +948,12 @@ class GraphTrainer:
             df.to_excel(outname)
         return df
 
-    def get_best_eval_results(self, eval_results: List[EvalResults]) -> EvalResults:
-        test_score = np.array([er.accuracy.val for er in eval_results])
-        best = np.argmax(test_score)
+    def get_best_eval_results(self, eval_results: List[EvalResults], scoring_metric: Literal["accuracy", "auc", "f1"] = "accuracy") -> EvalResults:
+        if scoring_metric == "accuracy":
+            t = np.array([er.accuracy.val for er in eval_results])
+        elif scoring_metric == "auc":
+            t = np.array([er.roc_auc.val for er in eval_results])
+        elif scoring_metric == "f1":
+            t = np.array([er.f1_macro.val for er in eval_results])
+        best = np.argmax(t)
         return eval_results[best]

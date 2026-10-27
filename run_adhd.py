@@ -16,15 +16,9 @@ outfiles = [
     "./exports/w43/adhd_rslt_a116.xlsx",
     "./exports/w43/adhd_rslt_p264.xlsx",
 ]
-outfiles = [
-    "./exports/w43/adhd_rslt_a116.xlsx",
-    "./exports/w43/adhd_rslt_p264.xlsx",
-]
 atlas = ["Schaefer100", "AAL116", "PP264"]
-atlas = ["AAL116", "PP264"]
 folder_name = "./data/adhd/"
 rois = [100, 116, 264]
-rois = [116, 264]
 for k, a in enumerate(atlas):
     pp = Preprocess(n_rois=rois[k], normalize="minmax")
     nodes, edges, y, errors = pp.from_node_features_to_graph_dataset(folder_name, a)
@@ -64,7 +58,7 @@ for k, a in enumerate(atlas):
     trainer = GraphTrainer(params, display=True, progress_bar=True)
     # eval_results = trainer.evaluate_graph_cls(dataset) # TMPHN
     eval_results = trainer.evaluate_graph_cls_spectral(dataset)
-    best_results = trainer.get_best_eval_results(eval_results)
+    best_results = trainer.get_best_eval_results(eval_results, scoring_metric="auc")
     print(f"best_results={best_results}")
 
     # reporting

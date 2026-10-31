@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 from ..layers import TMPHNLayer, global_pool, normalize
 from ..loader import Terms, HyperBatch
-from ..config import Params
+from ...config import Params
 
 
 class TMPHN(nn.Module):

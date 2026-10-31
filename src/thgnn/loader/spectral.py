@@ -1,12 +1,15 @@
-import math
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
 import numpy as np
+from numpy.typing import NDArray
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
-from .utils import add_self_loops, compile_terms
+
+def add_self_loops(hyperedges: Sequence, num_nodes: int) -> List[NDArray]:
+    """Append a singleton hyperedge {v} for every node (same as prepare.add_self_loop)."""
+    return [np.asarray(e, dtype=np.int64) for e in hyperedges] + [
+        np.array([v], dtype=np.int64) for v in range(num_nodes)
+    ]
 
 
 @dataclass(repr=False)
@@ -74,31 +77,3 @@ def collate_spectral(graphs: Sequence[SpectralGraph]) -> SpectralBatch:
         num_graphs=len(graphs),
     )
 
-
-def build_spectral_graph(
-    x,
-    hyperedges: Sequence,
-    y=None,
-    self_loops: bool = False,
-    strategy: str = "random",
-    scores=None,
-    temperature: float = 1.0,
-    seed: Optional[int] = 0,
-) -> SpectralGraph:
-    """Compile one hypergraph for TSpectralHGNN (same arguments as build_hypergraph, M fixed to 3)."""
-    x = torch.as_tensor(np.asarray(x), dtype=torch.float32)
-    n = int(x.shape[0])
-    if self_loops:
-        hyperedges = add_self_loops(hyperedges, n)
-    ct = compile_terms(
-        hyperedges, n, 3, strategy, scores, temperature, np.random.default_rng(seed)
-    )
-    if y is not None:
-        y = torch.as_tensor(np.asarray(y), dtype=torch.long).reshape(-1)
-    return SpectralGraph(
-        x,
-        torch.from_numpy(ct.target),
-        torch.from_numpy(ct.idx),
-        torch.from_numpy(ct.coef),
-        y,
-    )

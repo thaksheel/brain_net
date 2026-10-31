@@ -8,7 +8,6 @@ from src import (
     GraphDataset,
     Params,
     TMPHNConfig,
-    GridSearchParams,
 )
 
 outfiles = [
@@ -16,18 +15,15 @@ outfiles = [
     "./exports/w43/adhd_rslt_a116.xlsx",
     "./exports/w43/adhd_rslt_p264.xlsx",
 ]
-outfiles = ["./exports/w43/adhd_rslt_p264.xlsx"]
 atlas = ["Schaefer100", "AAL116", "PP264"]
-atlas = ["PP264"]
 folder_name = "./data/adhd/"
 rois = [100, 116, 264]
-rois = [264]
 for k, a in enumerate(atlas):
     pp = Preprocess(n_rois=rois[k], normalize="minmax")
     nodes, edges, y, errors = pp.from_node_features_to_graph_dataset(folder_name, a)
     data_list = pp.get_graph_dataset_v2(nodes, edges, y)
     dataset = GraphDataset(
-        root=f"./data/adhd/{a}", data_list=data_list, force_reload=True
+        root=f"./data/adhd/{a}", data_list=data_list, force_reload=False
     )
     params = Params(
         method="T-Spectral",

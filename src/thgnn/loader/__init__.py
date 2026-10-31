@@ -1,10 +1,9 @@
 from .terms import CompiledTerms, Terms
 from .hyper import HyperBatch, HyperGraph  
-from .spectral import SpectralBatch, SpectralGraph, build_spectral_graph
+from .spectral import SpectralBatch, SpectralGraph, add_self_loops
 from .spectral_loader import SpectralGraphLoader
 from .utils import (
     collate,
-    add_self_loops,
     hyperedges_from_incidence,
     hyperedges_from_adjacency,
     knn_hyperedges,
@@ -12,13 +11,13 @@ from .utils import (
     adjacency_value,
     expansion_patterns,
     choose_members,
-    compile_terms,
     build_hypergraph,
     collate_spectral, 
     cosine_basis, 
     adjacency_tensor,
     adjacency_spectrum, 
 )
+from ._utils import compile_terms, build_spectral_graph
 from .hyper_loader import HyperGraphLoader 
 
 

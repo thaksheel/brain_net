@@ -1,5 +1,6 @@
 from typing import List, Optional, Sequence
 import numpy as np
+import math 
 import torch
 from collections import Counter
 from functools import lru_cache
@@ -8,7 +9,7 @@ from math import comb, factorial, prod
 from typing import List, Optional, Sequence
 from numpy.typing import NDArray
 
-from . import Terms, HyperBatch, HyperGraph, CompiledTerms
+from . import Terms, HyperBatch, HyperGraph, CompiledTerms, SpectralBatch
 
 
 _MAX_CHUNK_ELEMENTS = (
@@ -35,6 +36,25 @@ def collate(graphs: Sequence[HyperGraph]) -> HyperBatch:
         ]
     )
     return HyperBatch(x, terms, y, batch, len(graphs))
+
+
+def collate_spectral(graphs: Sequence[SpectralGraph]) -> SpectralBatch:
+    sizes = {g.num_nodes for g in graphs}
+    if len(sizes) != 1:
+        raise ValueError(
+            f"T-spectral batches need graphs with equal node counts, got {sorted(sizes)}; "
+            "use batch_size=1 or a fixed atlas"
+        )
+    ys = [g.y for g in graphs]
+    return SpectralBatch(
+        x=torch.stack([g.x for g in graphs]),
+        target=torch.cat([g.target for g in graphs]),
+        idx=torch.cat([g.idx for g in graphs]),
+        coef=torch.cat([g.coef for g in graphs]),
+        graph=torch.cat([torch.full_like(g.target, i) for i, g in enumerate(graphs)]),
+        y=torch.cat(ys) if all(t is not None for t in ys) else None,
+        num_graphs=len(graphs),
+    )
 
 
 def add_self_loops(hyperedges: Sequence, num_nodes: int) -> List[NDArray] :
@@ -167,7 +187,49 @@ def choose_members(
             keys[rows, picked[:, j]] = np.inf  # keys is a fresh array, safe to modify
     else:
         picked = np.argpartition(keys, k - 1, axis=1)[:, :k]  # k smallest keys
-    return np.take_along_axis(others, picked, axis=1)
+    return np.take_along_axis(others, picked, axis=1) 
+
+
+def cosine_basis(N: int, device=None, dtype=torch.float32) -> torch.Tensor:
+    """c_f(k) = 2 cos(2 pi f (k+1) / (2N+1)) for nodes-as-slices k = 0..N-1 and frequencies f = 0..N -> (N, N+1).
+
+    This is the (real) DFT of the symmetrized sequence [0, s_1..s_N, s_N..s_1]; using it
+    replaces fft/ifft and keeps everything real.
+    """
+    Ns = 2 * N + 1
+    k = torch.arange(1, N + 1, device=device, dtype=torch.float64)
+    f = torch.arange(N + 1, device=device, dtype=torch.float64)
+    return (2 * torch.cos(2 * math.pi * torch.outer(k, f) / Ns)).to(dtype)
+
+
+def adjacency_spectrum(batch: SpectralBatch, N: int, C: torch.Tensor) -> torch.Tensor:
+    """A_hat[b, i, j, f] = sum_k A[b, i, j, k] c_f(k), built directly from the terms -> (B, N, N, N+1).
+
+    Each term (target t, partners (a, b), coef) is the adjacency entries a[t,a,b] = a[t,b,a] = coef/2.
+    """
+    B, Nf = batch.num_graphs, C.shape[1]
+    t, a, b = batch.target, batch.idx[:, 0], batch.idx[:, 1]
+    w = (batch.coef / 2).to(C.dtype).unsqueeze(1)
+    out = C.new_zeros(B * N * N, Nf)
+    base = (batch.graph * N + t) * N
+    out.index_add_(0, base + a, w * C[b])  # entry a[t, a, b]: row j = a, slice k = b
+    out.index_add_(0, base + b, w * C[a])  # entry a[t, b, a]: row j = b, slice k = a
+    return out.view(B, N, N, Nf)
+
+
+def adjacency_tensor(batch: SpectralBatch, N: int, dtype=torch.float32) -> torch.Tensor:
+    """Dense degree-normalized adjacency tensor a[b, i, j, k] from the compiled terms -> (B, N, N, N).
+
+    Each term (target t, partners (p, q), coef) is a[t, p, q] = a[t, q, p] = coef / 2.
+    """
+    B = batch.num_graphs
+    t, p, q = batch.target, batch.idx[:, 0], batch.idx[:, 1]
+    w = (batch.coef / 2).to(dtype)
+    base = (batch.graph * N + t) * N
+    A = torch.zeros(B * N * N * N, dtype=dtype, device=batch.x.device)
+    A.index_add_(0, (base + p) * N + q, w)
+    A.index_add_(0, (base + q) * N + p, w)
+    return A.view(B, N, N, N)
 
 
 def compile_terms(

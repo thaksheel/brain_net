@@ -499,7 +499,7 @@ class GraphTrainer:
         eval_results = self.train_graph_cls(model, ttv_loader)
         return eval_results
 
-    def run_stratified_n_iteractions(
+    def run_stratified_n_iterations(
         self,
         seeds: List[int],
         dataset: InMemoryDataset,

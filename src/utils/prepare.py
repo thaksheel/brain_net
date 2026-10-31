@@ -7,7 +7,7 @@ import os
 import random
 
 from . import NeighborFinder, HyperRepresentation
-from ..models import TSpectralHyperGNN, TSpatialHyperGNN, TMPHN
+from .. import TSpectralHGNN, TSpatialHGNN, TMPHN
 
 
 def read_data(dataset_directory, data_type=None, dataset=None):

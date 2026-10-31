@@ -34,7 +34,7 @@ params.dataset = "MUTAG"
 
 trainer = GraphTrainer(params, display=True)
 seeds = [i for i in range(42, 52, 1)]
-evals = trainer.run_stratified_n_iteractions(
+evals = trainer.run_stratified_n_iterations(
     seeds=seeds, dataset=dataset, graph_type="stnd"
 )
 df = pd.DataFrame()

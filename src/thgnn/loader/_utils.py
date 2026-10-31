@@ -2,8 +2,9 @@ import torch
 from typing import Optional, Sequence
 import numpy as np
 
-from .terms import CompiledTerms
+from .terms import CompiledTerms, Terms
 from .spectral import add_self_loops, SpectralGraph
+from .hyper import HyperGraph
 from .utils import adjacency_value, expansion_patterns, choose_members
 
 _MAX_CHUNK_ELEMENTS = (
@@ -118,3 +119,36 @@ def build_spectral_graph(
         torch.from_numpy(ct.coef),
         y,
     )
+
+
+def build_hypergraph(
+    x,
+    hyperedges: Sequence,
+    Mlst: Sequence[int],
+    y=None,
+    self_loops: bool = False,
+    strategy: str = "random",
+    scores=None,
+    temperature: float = 1.0,
+    seed: Optional[int] = 0,
+) -> HyperGraph:
+    """Compile one hypergraph for a model with layer orders `Mlst`.
+
+    Each distinct M is compiled once; hyperedges larger than a layer's M are
+    down-sampled for that layer with `strategy` ("random" | "topk" | "weighted",
+    the last two use `scores[target, member]`, e.g. |FC| for brain data).
+    Re-call with a new `seed` (e.g. every few epochs) to resample neighbors.
+    """
+    x = torch.as_tensor(x, dtype=torch.float32)
+    n = int(x.shape[0])
+    if self_loops:
+        hyperedges = add_self_loops(hyperedges, n)
+    rng = np.random.default_rng(seed)
+    compiled = {}
+    for M in Mlst:
+        if M not in compiled:
+            ct = compile_terms(hyperedges, n, M, strategy, scores, temperature, rng)
+            compiled[M] = Terms.from_compiled(ct)
+    if y is not None:
+        y = torch.as_tensor(np.asarray(y), dtype=torch.long).reshape(-1)
+    return HyperGraph(x, [compiled[M] for M in Mlst], y)

@@ -69,7 +69,7 @@ for k, a in enumerate(atlas):
     # NOTE: running cv evals
     trainer.params.epochs = 100
     seeds = [i for i in range(42, 42 + 30, 1)]
-    evals = trainer.run_stratified_n_iteractions(
+    evals = trainer.run_stratified_n_iterations(
         seeds=seeds, dataset=dataset, graph_type="stnd"
     )
     df = pd.DataFrame()

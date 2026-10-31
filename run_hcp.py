@@ -1,13 +1,21 @@
-import numpy as np
-import pandas as pd
-from matplotlib import pyplot as plt
+from src import (
+    Affichage,
+    Evaluation,
+    GridSearchParams,
+    NeuroGraphDataset,
+    Params,
+    TMPHNConfig,
+)
 
-from src import Params, GraphTrainer, TMPHNConfig, NeuroGraphDataset
-
+ROOT = "C:/Users/tnall/Downloads/"
 ROOT = "D:/datasets/hcp_data/"
 names = ["HCPGender", "HCPAge", "HCPTask"]
-names = ["HCPTask"]
+methods = ["T-MPHN", "GATConv", "GIN"]
+seeds = list(range(42, 42 + 30))
+TUNE = False
 
+affichage = Affichage(outdir="./exports/w44/hcp", show=False)
+all_runs = []
 for name in names:
     dataset = NeuroGraphDataset(root=ROOT, name=name)
     params = Params(
@@ -19,7 +27,7 @@ for name in names:
         Mlst=[3, 3],
         num_layers=2,
         hid_dim=128,
-        epochs=100,
+        epochs=50,
         lr=5e-4,
         wd=5e-4,
         dropout=0.65,
@@ -39,15 +47,37 @@ for name in names:
             keep_on_device=False,
         ),
     )
-
-    trainer = GraphTrainer(params=params, display=False, progress_bar=True)
-    eval_results = trainer.evaluate_graph_cls(dataset)
-    best_results = trainer.get_best_eval_results(eval_results)
-    df_results = trainer.evaluation_results_to_df(
-        eval_results,
-        outname=f"./exports/w43/ng_rslt_{name.lower()}.xlsx",
-        export=True,
-        exclude_fields=[],
+    grid = GridSearchParams(
+        lr=[5e-4, 1e-3, 5e-3, 1e-2],
+        wd=[5e-4, 5e-3, 5e-2],
+        num_layers=[2, 3],
+        batch_size=[32, 64],
+        dropout=[0.5, 0.65, 0.75],
+        hid_dim=[64, 128],
     )
+    evaluation = Evaluation(
+        params, task="graph", monitor="roc_auc", params_dir="./params/hcp"
+    )
+    for method in methods:
+        if TUNE or not evaluation.has_saved(method):
+            evaluation.tune_and_evaluate(
+                dataset, method, grid, seeds=seeds, maxiter=30, search_epochs=50
+            )
+        else:
+            evaluation.evaluate_saved(dataset, method, seeds=seeds)
+    affichage.report(
+        evaluation.runs, name=f"hcp_{name.lower()}", searches=evaluation.searches
+    )
+    all_runs += evaluation.runs
 
+print(affichage.summary_text(all_runs, metrics=("accuracy", "roc_auc", "f1")))
+affichage.export_excel(
+    "hcp_all.xlsx",
+    runs=all_runs,
+    sheets={
+        "accuracy_table": affichage.paper_table(all_runs, "accuracy", percent=True),
+        "auc_table": affichage.paper_table(all_runs, "roc_auc"),
+        "significance": affichage.significance_table(all_runs, "roc_auc"),
+    },
+)
 print("END")

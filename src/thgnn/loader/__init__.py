@@ -11,13 +11,12 @@ from .utils import (
     adjacency_value,
     expansion_patterns,
     choose_members,
-    build_hypergraph,
     collate_spectral, 
     cosine_basis, 
     adjacency_tensor,
     adjacency_spectrum, 
 )
-from ._utils import compile_terms, build_spectral_graph
+from ._utils import compile_terms, build_spectral_graph, build_hypergraph
 from .hyper_loader import HyperGraphLoader 
 
 

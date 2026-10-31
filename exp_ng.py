@@ -66,7 +66,7 @@ for name in names:
     print(f"--------> Evaluating on --{name}")
     trainer.params.epochs = 250
     seeds = [i for i in range(42, 42 + 30, 1)]
-    evals = trainer.run_stratified_n_iteractions(
+    evals = trainer.run_stratified_n_iterations(
         seeds=seeds,
         dataset=dataset,
         graph_type="tensor",

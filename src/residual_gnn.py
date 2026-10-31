@@ -4,7 +4,7 @@ from torch_geometric.nn import aggr
 from torch.nn import ModuleList
 from torch_geometric.nn import global_mean_pool
 
-from ...config import Params
+from .config import Params
 
 
 class ResidualGNNs(torch.nn.Module):

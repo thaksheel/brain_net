@@ -51,7 +51,7 @@ for name in names:
     trainer = GraphTrainer(params, display=False, progress_bar=True)
     trainer.params.epochs = 50
     seeds = [i for i in range(42, 42 + 1, 1)]
-    evals = trainer.run_stratified_n_iteractions(
+    evals = trainer.run_stratified_n_iterations(
         seeds=seeds, dataset=dataset, graph_type="ng", model_name="GATConv"
     )
     df = pd.DataFrame()

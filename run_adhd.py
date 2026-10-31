@@ -11,11 +11,19 @@ from src import (
 atlas = ["Schaefer100", "AAL116", "PP264"]
 rois = [100, 116, 264]
 folder_name = "./data/adhd/"
-methods = ["T-MPHN", "T-Spectral", "T-Spatial", "GIN", "GATConv"]
+methods = ["T-MPHN", "T-Spectral", "T-Spatial", "GATConv"]
 seeds = list(range(42, 42 + 30))
 TUNE = False
 
 affichage = Affichage(outdir="./exports/w44/adhd", show=False)
+grid = GridSearchParams(
+    lr=[1e-5, 5e-4, 1e-4, 1e-3, 5e-3],
+    wd=[5e-4, 5e-3, 1e-3, 1e-2],
+    num_layers=[2, 3],
+    batch_size=[32, 64],
+    dropout=[0.5, 0.65, 0.75],
+    hid_dim=[64, 128],
+)
 all_runs = []
 for k, a in enumerate(atlas):
     pp = Preprocess(n_rois=rois[k], normalize="minmax")
@@ -33,7 +41,7 @@ for k, a in enumerate(atlas):
         Mlst=[3, 3],
         num_layers=2,
         hid_dim=128,
-        epochs=100,
+        epochs=400,
         lr=5e-4,
         wd=5e-4,
         dropout=0.65,
@@ -52,14 +60,6 @@ for k, a in enumerate(atlas):
             chunk_size=2_000_000,
             keep_on_device=True,
         ),
-    )
-    grid = GridSearchParams(
-        lr=[5e-4, 1e-3, 5e-3],
-        wd=[5e-4, 5e-3],
-        num_layers=[1, 2],
-        batch_size=[32, 64],
-        dropout=[0.5, 0.65],
-        hid_dim=[64, 128],
     )
     evaluation = Evaluation(
         params,

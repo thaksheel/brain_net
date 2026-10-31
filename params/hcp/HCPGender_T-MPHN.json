@@ -1,0 +1,65 @@
+{
+  "dataset": "HCPGender",
+  "method": "T-MPHN",
+  "task": "graph",
+  "monitor": "accuracy",
+  "saved_at": "2026-10-31T15:51:56",
+  "params": {
+    "num_classes": 2,
+    "num_features": 1000,
+    "method": "T-MPHN",
+    "tmphn_config": {
+      "pool": "mean",
+      "norm": "rms",
+      "project_input": true,
+      "hyperedges": "neighborhood",
+      "knn_k": 4,
+      "strategy": "topk",
+      "scores": "auto",
+      "chunk_size": 2000000,
+      "checkpoint": true,
+      "keep_on_device": false,
+      "log_every": 10
+    },
+    "task": "graph",
+    "hyperG_norm": false,
+    "data_type": "new",
+    "self_loop": false,
+    "num_layers": 3,
+    "hid_dim": 64,
+    "dropout": 0.5,
+    "layernorm": true,
+    "batchnorm": true,
+    "lr": 0.001,
+    "wd": 0.005,
+    "train_ratio": 0.7,
+    "valid_ratio": 0.1,
+    "epochs": 50,
+    "num_exps": 2,
+    "device": "cuda",
+    "seed": 42,
+    "seed_weights": 41,
+    "seed_splits": 43,
+    "early_stopping": true,
+    "combine": "concat",
+    "M": 3,
+    "Mlst": [
+      3,
+      3
+    ],
+    "dataset": "HCPGender",
+    "batch_size": 64
+  },
+  "search": {
+    "val_accuracy": 0.8333333333333334,
+    "best_params": {
+      "lr": 0.001,
+      "wd": 0.005,
+      "num_layers": 3,
+      "hid_dim": 64,
+      "dropout": 0.5,
+      "batch_size": 64
+    },
+    "trials": 5
+  }
+}

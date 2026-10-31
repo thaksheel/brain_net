@@ -6,7 +6,7 @@ ROOT = "D:/datasets/hcp_data/"
 names = ["HCPGender"]
 methods = ["T-MPHN"]
 
-affichage = Affichage(outdir="./exports/w44/hcp_test", show=False)
+affichage = Affichage(outdir="./exports/w44/hcp", show=False)
 runs = []
 for name in names:
     dataset = NeuroGraphDataset(root=ROOT, name=name)

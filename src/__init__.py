@@ -13,7 +13,7 @@ from .config import (
 )
 from .utils.neighbors import NeighborFinder
 
-from .tmphn import (
+from .thgnn import (
     build_hypergraph,
     TMPHN,
     hyperedges_from_adjacency,

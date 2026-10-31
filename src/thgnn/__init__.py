@@ -19,7 +19,7 @@ from .data import (
     collate,
 )
 from .layers import TMPHNLayer, global_pool, normalize, tensor_message
-from .model import TMPHN
+from .tmphn import TMPHN
 from .train import (
     evaluate_graphs,
     evaluate_nodes,

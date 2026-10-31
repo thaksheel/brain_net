@@ -1,23 +1,3 @@
-"""
-Hypergraph structure for T-MPHN (NumPy only, runs once per hypergraph).
-
-Replaces: Neighbors.py (NeighborFinder) and the combinatorics inside
-TMessagePassing (aggregate_with_M, aggregate_with_c, adj_coef).
-
-Pipeline:   hyperedges  --compile_terms(M)-->  CompiledTerms
-
-A *term* is one summand of the T-MPHN neighborhood message (paper Eqs. 21-24):
-
-    message[target] += coef * h[idx[0]] * h[idx[1]] * ... * h[idx[M-2]]
-
-i.e. the Hadamard (cross-node interaction) product of M-1 node vectors, weighted
-by the adjacency value of its hyperedge divided by the target's degree.
-Compiling every node's neighborhood into flat arrays ONCE lets the model run each
-layer as a single gather / multiply / scatter-add on the GPU (see layers.py).
-"""
-
-from __future__ import annotations
-
 from collections import Counter
 from dataclasses import dataclass
 from functools import lru_cache

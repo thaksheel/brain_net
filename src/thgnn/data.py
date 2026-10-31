@@ -1,15 +1,3 @@
-"""
-Torch-side containers: what the model consumes.
-
-    build_hypergraph(x, hyperedges, Mlst)  ->  HyperGraph   (one hypergraph, terms for every layer)
-    collate([HyperGraph, ...])             ->  HyperBatch   (disjoint union, for graph classification)
-    HyperGraphLoader(graphs, batch_size)   ->  iterates HyperBatch objects
-
-Replaces: the neig_dict plumbing in prepare.py, Encoder.forward_with_features,
-and config.HypergraphBatchLoader.
-"""
-from __future__ import annotations
-
 import math
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
@@ -191,3 +179,4 @@ class HyperGraphLoader:
         order = self.rng.permutation(n) if self.shuffle else np.arange(n)
         for start in range(0, n, self.batch_size):
             yield collate([self.graphs[i] for i in order[start : start + self.batch_size]])
+

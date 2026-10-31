@@ -1,23 +1,6 @@
-"""
-T-spectral HyperGNN (paper Sec. III-B, Eq. 6-10, Appendix B).
-
-Order M = 3 (the setting the paper uses for T-spectral). The adjacency tensor is built from
-the same compiled terms as T-MPHN (so oversized hyperedges are down-sampled the same way and
-every node's weights sum to 1).
-
-Per layer, for each subject (b), node i, frequency f, feature d:
-    A_hat[b, i, j, f] = sum_k A[b, i, j, k] * c_f(k)        (fixed, built once per batch)
-    h_hat[b, f, d]    = sum_k h[b, k, d] * c_f(k)           c_f(k) = 2 cos(2 pi f (k+1) / Ns)
-    Y_hat[b, i, f, d] = h_hat[b, f, d] * sum_j A_hat[b, i, j, f] h[b, j, d]
-    m[b, i, d]        = sum_f w_f Y_hat[b, i, f, d]         (learned spectral filter)
-
-Cost: memory O(B N^2 N) for A_hat and time O(B N^3 D) per layer.
-"""
-
 import math
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
-
 import numpy as np
 import torch
 import torch.nn as nn

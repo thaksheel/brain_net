@@ -1,11 +1,3 @@
-"""
-Minimal training / evaluation loops (replaces the T-MPHN parts of prepare.py).
-
-Run the synthetic demo (CPU or GPU):   python -m tmphn.train
-"""
-
-from __future__ import annotations
-
 import copy
 from typing import Dict, Optional, Sequence
 
@@ -13,9 +5,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from .data import HyperGraph, HyperGraphLoader, build_hypergraph
-from .model import TMPHN
-from .structure import knn_hyperedges
+from .data import HyperGraph, HyperGraphLoader
+from .tmphn import TMPHN
 
 
 def default_device() -> str:
@@ -176,58 +167,3 @@ def train_graph_classification(
     model.load_state_dict(best_state)
     return evaluate_graphs(model, valid_graphs, device=device)
 
-
-# =============================================================================
-# Synthetic demo: exercises both tasks, down-sampling, and batching
-# =============================================================================
-def _demo() -> None:
-    device = default_device()
-    rng = np.random.default_rng(0)
-    print(f"device: {device}")
-
-    # --- node classification: one hypergraph, labels depend on features ---
-    N, F_in = 300, 16
-    x = rng.normal(size=(N, F_in)).astype(np.float32)
-    y = (x[:, 0] > 0).astype(np.int64)
-    edges = [
-        rng.choice(N, size=int(rng.integers(2, 9)), replace=False) for _ in range(400)
-    ]
-    graph = build_hypergraph(x, edges, Mlst=[4, 3], y=y, self_loops=True, seed=0)
-    print(graph)
-    model = TMPHN(F_in, 64, 2, Mlst=[4, 3], dropout=0.1)
-    print(
-        "node task:",
-        train_node_classification(
-            model, graph, random_split(N), epochs=60, log_every=20
-        ),
-    )
-
-    # --- graph classification: many small hypergraphs, kNN hyperedges, top-k down-sampling ---
-    graphs = []
-    for i in range(80):
-        n = int(rng.integers(20, 40))
-        xi = rng.normal(size=(n, F_in)).astype(np.float32)
-        label = i % 2
-        xi[:, 0] += 1.0 if label else -1.0  # a learnable signal
-        sim = xi @ xi.T
-        graphs.append(
-            build_hypergraph(
-                xi,
-                knn_hyperedges(sim, k=4),
-                Mlst=[5, 3],
-                y=label,
-                strategy="topk",
-                scores=sim,
-            )
-        )
-    model = TMPHN(F_in, 64, 2, Mlst=[5, 3], task="graph", dropout=0.1)
-    print(
-        "graph task:",
-        train_graph_classification(
-            model, graphs[:60], graphs[60:], epochs=30, log_every=10
-        ),
-    )
-
-
-if __name__ == "__main__":
-    _demo()

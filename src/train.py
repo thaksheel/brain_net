@@ -54,8 +54,8 @@ from . import (
     HyperGraphLoader,
     HyperGraph,
 )
-from .tmphn.tspectral import build_spectral_graph, TSpectralHGNN, SpectralGraphLoader, SpectralGraph
-from .tmphn.tspatial import TSpatialHGNN
+from .thgnn.tspectral import build_spectral_graph, TSpectralHGNN, SpectralGraphLoader, SpectralGraph
+from .thgnn.tspatial import TSpatialHGNN
 
 
 class GraphTrainer:

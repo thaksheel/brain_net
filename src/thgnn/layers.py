@@ -1,14 +1,3 @@
-"""
-T-MPHN building blocks.
-
-Replaces: TMessagePassing.forward / aggregate_for_one_node  ->  tensor_message
-            Encoder                                           ->  TMPHNLayer
-
-Every node is processed at once with three GPU-friendly ops per layer:
-gather (h[idx]), elementwise multiply (Hadamard product), scatter-add (index_add).
-"""
-from __future__ import annotations
-
 from typing import Optional
 
 import torch

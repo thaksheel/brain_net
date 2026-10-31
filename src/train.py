@@ -27,11 +27,10 @@ from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
 )
-from typing import Dict, List, Optional, Literal, Tuple
+from typing import Dict, List, Literal
 import seaborn as sns
 from sklearn.model_selection import train_test_split
 from torch_geometric.data import Data, InMemoryDataset
-from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
 from .utils import (
@@ -42,20 +41,8 @@ from .utils import (
     add_self_loop,
 )
 from .models import GIN, ResidualGNNs
-from . import (
-    Params,
-    EvalResults,
-    TTV,
-    GridSearchParams,
-    TMPHN,
-    knn_hyperedges,
-    hyperedges_from_adjacency,
-    build_hypergraph,
-    HyperGraphLoader,
-    HyperGraph,
-)
-from .thgnn.tspectral import build_spectral_graph, TSpectralHGNN, SpectralGraphLoader, SpectralGraph
-from .thgnn.tspatial import TSpatialHGNN
+from .thgnn import *
+from . import Params, EvalResults, TTV, GridSearchParams, TMPHN
 
 
 class GraphTrainer:
@@ -260,12 +247,13 @@ class GraphTrainer:
             test=self.to_hypergraphs(test_dataset),
         )
 
-
     def get_dataloader(self, ttv_dataset: TTV) -> TTV:
         """REPLACES your get_dataloader: picks the loader that matches the converted graphs."""
         first = ttv_dataset.train[0]
         Loader = (
-            SpectralGraphLoader if isinstance(first, SpectralGraph) else HyperGraphLoader
+            SpectralGraphLoader
+            if isinstance(first, SpectralGraph)
+            else HyperGraphLoader
         )
         bs, seed = self.params.batch_size, self.params.seed
         return TTV(
@@ -743,7 +731,7 @@ class GraphTrainer:
         )
         torch.manual_seed(self.params.seed)
         model = self.build_tspectral(max_nodes, task="graph")
-        return self.train_graph_cls(model, ttv_loader) 
+        return self.train_graph_cls(model, ttv_loader)
 
     def evaluate_graph_cls_spatial(self, dataset):
         """T-spatial counterpart of evaluate_graph_cls (TMPHN); returns List[EvalResults]."""
@@ -948,7 +936,11 @@ class GraphTrainer:
             df.to_excel(outname)
         return df
 
-    def get_best_eval_results(self, eval_results: List[EvalResults], scoring_metric: Literal["accuracy", "auc", "f1"] = "accuracy") -> EvalResults:
+    def get_best_eval_results(
+        self,
+        eval_results: List[EvalResults],
+        scoring_metric: Literal["accuracy", "auc", "f1"] = "accuracy",
+    ) -> EvalResults:
         if scoring_metric == "accuracy":
             t = np.array([er.accuracy.val for er in eval_results])
         elif scoring_metric == "auc":

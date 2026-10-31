@@ -5,8 +5,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from .data import HyperGraph, HyperGraphLoader
-from .tmphn import TMPHN
+from . import * 
 
 
 def default_device() -> str:

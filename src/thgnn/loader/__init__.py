@@ -1,6 +1,6 @@
 from .terms import CompiledTerms, Terms
 from .hyper import HyperBatch, HyperGraph  
-from .spectral import SpectralBatch, SpectralGraph
+from .spectral import SpectralBatch, SpectralGraph, build_spectral_graph
 from .spectral_loader import SpectralGraphLoader
 from .utils import (
     collate,
@@ -23,6 +23,7 @@ from .hyper_loader import HyperGraphLoader
 
 
 __all__ = [
+    "build_spectral_graph",
     "adjacency_tensor",
     "adjacency_spectrum",
     "cosine_basis",

@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..data import Terms
 from .utils import tensor_message, normalize
+from ..loader import Terms 
 
 
 class TMPHNLayer(nn.Module):

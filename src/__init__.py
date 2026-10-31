@@ -1,4 +1,3 @@
-from .models import *
 from .utils import *
 
 from .config import (
@@ -11,22 +10,15 @@ from .config import (
     HypergraphBatchLoader,
     TMPHNConfig,
 )
-from .utils.neighbors import NeighborFinder
 
-from .thgnn import (
-    build_hypergraph,
-    TMPHN,
-    hyperedges_from_adjacency,
-    HyperGraphLoader, 
-    HyperGraph, 
-    knn_hyperedges,
-)
+from .thgnn import *
 from .models.tmphn_graph import TMPHN_Graph_Cls
 from .models.gnn import GIN
 
 from .train import GraphTrainer
 
 __all__ = [
+    "TMPHNConfig",
     "build_hypergraph",
     "TMPHN",
     "hyperedges_from_adjacency",

@@ -1,11 +1,10 @@
 from typing import Optional
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint as _checkpoint
 
-from ..data import Terms
+from ..loader import Terms
 
 
 def global_pool(

@@ -40,7 +40,7 @@ from .utils import (
     read_data,
     add_self_loop,
 )
-from .models import GIN, ResidualGNNs
+from . import GIN, ResidualGNNs
 from .thgnn import *
 from . import Params, EvalResults, TTV, GridSearchParams, TMPHN
 

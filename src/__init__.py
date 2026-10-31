@@ -12,12 +12,13 @@ from .config import (
 )
 
 from .thgnn import *
-from .models.tmphn_graph import TMPHN_Graph_Cls
-from .models.gnn import GIN
+from .gnn import GIN
+from .residual_gnn import ResidualGNNs
 
 from .train import GraphTrainer
 
 __all__ = [
+    "ResidualGNNs",
     "TMPHNConfig",
     "build_hypergraph",
     "TMPHN",
@@ -27,7 +28,6 @@ __all__ = [
     "knn_hyperedges",
     "GraphTrainer",
     "GIN",
-    "TMPHN_Graph_Cls",
     "NeighborFinder",
     "HypergraphBatchLoader",
     "Params",

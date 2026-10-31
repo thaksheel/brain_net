@@ -6,7 +6,7 @@ import torch
 import time
 
 from src.config import Params
-from src.models.tmphn_graph import TMPHN_Graph_Cls
+from temp.models.tmphn_graph import TMPHN_Graph_Cls
 
 
 def evaluate(model, loader, params, criterion):
